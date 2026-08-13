@@ -1,5 +1,6 @@
 package com.tgnguyen.layoutlybe.controller;
 
+import com.tgnguyen.layoutlybe.dto.StructureSummary;
 import com.tgnguyen.layoutlybe.service.FigmaService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -52,6 +53,17 @@ public class FigmaController {
     public Mono<String> getComponents(@PathVariable String fileKey,
                                        @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
         return figmaService.getFileComponents(fileKey, token);
+    }
+
+    // GET /api/figma/file/{fileKey}/structure
+    // Endpoint moi: backend TU PARSE va phan tich cay Document->Canvas->Frame->Node,
+    // tra ve so lieu tong hop (dem theo type, do sau, danh sach Auto Layout frame...)
+    // Khac voi /file (chi forward JSON tho), day la bang chung backend Java thuc su
+    // "hieu" cau truc, khong chi hien thi o frontend.
+    @GetMapping(value = "/file/{fileKey}/structure", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<StructureSummary> getStructure(@PathVariable String fileKey,
+                                                @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return figmaService.analyzeStructure(fileKey, token);
     }
 
     // GET /api/figma/file/{fileKey}/styles

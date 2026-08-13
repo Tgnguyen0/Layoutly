@@ -1,0 +1,18 @@
+# Maven
+layoutly-be/target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Node / Frontend
+layoutly-fe/node_modules/
+layoutly-fe/dist/
+
+# OS
+.DS_Store
+
+# Env / secrets
+.env
+*.env.local

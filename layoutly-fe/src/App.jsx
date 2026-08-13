@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Frame, Download, FileText, FileType2, Trash2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import InputPanel from './components/InputPanel.jsx'
 import JsonTree from './components/JsonTree.jsx'
-import { figmaApi, exportFile, downloadTextAsTxt, triggerDownload } from './lib/api.js'
+import { figmaApi, exportFile, downloadTextAsTxt, downloadTextAsJson, triggerDownload } from './lib/api.js'
 
 const STORAGE_KEYS = ['layoutly_token', 'layoutly_fileKey', 'layoutly_nodeIds']
 
@@ -70,6 +70,9 @@ export default function App() {
     try {
       if (type === 'txt') {
         downloadTextAsTxt(result.raw, exportName)
+        return
+      } else if (type === 'json') {
+        downloadTextAsJson(result.raw, exportName)
         return
       }
       const blob = await exportFile(type, exportName, result.raw)
@@ -147,6 +150,13 @@ export default function App() {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium bg-graphite-800 border border-graphite-600 text-ink-300 hover:text-blueprint hover:border-blueprint/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <Download size={13} /> .txt
+              </button>
+              <button
+                onClick={() => handleDownload('json')}
+                disabled={!result}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium bg-graphite-800 border border-graphite-600 text-ink-300 hover:text-blueprint hover:border-blueprint/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <Download size={13} /> .json
               </button>
               <button
                 onClick={() => handleDownload('docx')}
