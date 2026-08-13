@@ -58,6 +58,11 @@ export function downloadTextAsTxt(content, filename) {
   triggerDownload(blob, filename + '.txt')
 }
 
+export function downloadTextAsJson(content, filename) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8'})
+  triggerDownload(blob, filename + '.json')
+}
+
 export function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

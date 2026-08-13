@@ -1,10 +1,18 @@
 package com.tgnguyen.layoutlybe.service;
 
+import com.tgnguyen.layoutlybe.dto.StructureSummary;
+import com.tgnguyen.layoutlybe.model.FigmaFileResponse;
+import com.tgnguyen.layoutlybe.model.FigmaNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class FigmaService {
@@ -16,6 +24,97 @@ public class FigmaService {
 
     public FigmaService(WebClient figmaWebClient) {
         this.figmaWebClient = figmaWebClient;
+    }
+
+    /**
+     * Lay file Figma va PARSE that su vao FigmaNode (khac voi getFile() tra ve String tho).
+     * Day la ham backend "hieu" cau truc, dung cho ham analyzeStructure() ben duoi
+     * va sau nay se la dau vao cho ComponentClassifier.
+     */
+    public Mono<FigmaFileResponse> getFileParsed(String fileKey, String tokenOverride) {
+        String tokenToUse = resolveToken(tokenOverride);
+        return figmaWebClient.get()
+                .uri("/files/" + fileKey)
+                .header("X-Figma-Token", tokenToUse)
+                .retrieve()
+                .onStatus(status -> status.isError(), response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new WebClientResponseException(
+                                        response.statusCode().value(),
+                                        "Figma API loi: " + body,
+                                        null, null, null))))
+                .bodyToMono(FigmaFileResponse.class);
+    }
+
+    /**
+     * Duyet toan bo cay (Document -> Canvas -> Frame -> ... -> leaf node) va tong hop lai
+     * thanh so lieu de "nghien cuu cau truc": dem so node theo type, do sau lon nhat,
+     * danh sach ten cac Page (Canvas), va cac Frame dang dung Auto Layout (ung vien
+     * tot nhat cho ComponentClassifier o buoc sau).
+     */
+    public Mono<StructureSummary> analyzeStructure(String fileKey, String tokenOverride) {
+        return getFileParsed(fileKey, tokenOverride).map(file -> {
+            FigmaNode root = file.document();
+
+            Map<String, Integer> countByType = new LinkedHashMap<>();
+            List<String> canvasNames = new ArrayList<>();
+            List<StructureSummary.AutoLayoutFrame> autoLayoutFrames = new ArrayList<>();
+
+            int[] totalNodes = {0};
+            int[] maxDepth = {0};
+
+            traverse(root, 0, countByType, canvasNames, autoLayoutFrames, totalNodes, maxDepth);
+
+            return new StructureSummary(
+                    root != null ? root.type() : null,
+                    totalNodes[0],
+                    maxDepth[0],
+                    countByType,
+                    canvasNames,
+                    autoLayoutFrames
+            );
+        });
+    }
+
+    /** Duyet de quy 1 lan qua toan bo cay, vua dem vua thu thap thong tin can thiet. */
+    private void traverse(FigmaNode node, int depth,
+                           Map<String, Integer> countByType,
+                           List<String> canvasNames,
+                           List<StructureSummary.AutoLayoutFrame> autoLayoutFrames,
+                           int[] totalNodes, int[] maxDepth) {
+        if (node == null) return;
+
+        totalNodes[0]++;
+        maxDepth[0] = Math.max(maxDepth[0], depth);
+        countByType.merge(node.type(), 1, Integer::sum);
+
+        if ("CANVAS".equals(node.type())) {
+            canvasNames.add(node.name());
+        }
+
+        boolean usesAutoLayout = node.layoutMode() != null && !"NONE".equals(node.layoutMode());
+        if (usesAutoLayout) {
+            int childCount = node.hasChildren() ? node.children().size() : 0;
+            autoLayoutFrames.add(new StructureSummary.AutoLayoutFrame(
+                    node.id(), node.name(), node.layoutMode(), childCount));
+        }
+
+        if (node.hasChildren()) {
+            for (FigmaNode child : node.children()) {
+                traverse(child, depth + 1, countByType, canvasNames, autoLayoutFrames, totalNodes, maxDepth);
+            }
+        }
+    }
+
+    private String resolveToken(String tokenOverride) {
+        String tokenToUse = (tokenOverride != null && !tokenOverride.isBlank())
+                ? tokenOverride
+                : figmaToken;
+        if (tokenToUse == null || tokenToUse.isBlank()) {
+            throw new IllegalStateException(
+                    "Chua co Figma token. Nhap token vao trang test, hoac set bien moi truong FIGMA_TOKEN.");
+        }
+        return tokenToUse;
     }
 
     /**
@@ -66,13 +165,11 @@ public class FigmaService {
     private Mono<String> callFigma(String path, String tokenOverride) {
         // Uu tien token nguoi dung nhap truc tiep (header/form) hon token cau hinh san,
         // giup test nhanh nhieu token khac nhau ma khong can restart app
-        String tokenToUse = (tokenOverride != null && !tokenOverride.isBlank())
-                ? tokenOverride
-                : figmaToken;
-
-        if (tokenToUse == null || tokenToUse.isBlank()) {
-            return Mono.error(new IllegalStateException(
-                    "Chua co Figma token. Nhap token vao trang test, hoac set bien moi truong FIGMA_TOKEN."));
+        String tokenToUse;
+        try {
+            tokenToUse = resolveToken(tokenOverride);
+        } catch (IllegalStateException ex) {
+            return Mono.error(ex);
         }
         return figmaWebClient.get()
                 .uri(path)
