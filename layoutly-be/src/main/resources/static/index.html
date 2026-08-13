@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Layoutly Backend - Test nhanh</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2e38;
+    --accent: #6c5ce7;
+    --text: #e8e8ea;
+    --muted: #9a9da7;
+    --ok: #2ecc71;
+    --err: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  input, select {
+    width: 100%;
+    padding: 9px 10px;
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+  }
+  input:focus, select:focus { outline: 1px solid var(--accent); }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  button {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 9px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary { background: #2a2e38; }
+  #status { margin-top: 14px; font-size: 12px; }
+  #status.ok { color: var(--ok); }
+  #status.err { color: var(--err); }
+  #output {
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    height: 78vh;
+    overflow: auto;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    background: #2a2e38;
+    color: var(--muted);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎨 Layoutly — Backend</h1>
+<p class="sub">Nhập token + fileKey, bấm nút để xem Figma API trả về gì. Không cần Postman.</p>
+
+<div class="grid">
+  <div class="panel">
+    <label>Figma Personal Access Token</label>
+    <input id="token" type="password" placeholder="figd_xxxxxxxxxxxxxxxxxxxxx">
+    <div class="hint">Lấy tại Figma → Settings → Personal access tokens. Token chỉ lưu tạm trong trình duyệt (localStorage), không gửi lên đâu khác ngoài server local của bạn.</div>
+
+    <label>File Key</label>
+    <input id="fileKey" type="text" placeholder="8BaX6AqXi4YPyBKZGVghBO">
+    <div class="hint">Lấy từ URL Figma: figma.com/design/<b>fileKey</b>/...</div>
+
+    <label>Node IDs <span class="badge">chỉ cần cho nodes/images</span></label>
+    <input id="nodeIds" type="text" placeholder="0:1,1:23">
+    <div class="hint">Đổi dấu "-" thành ":" — ví dụ node-id=0-1 trên URL → nhập 0:1</div>
+
+    <div class="row">
+      <div>
+        <label>Format ảnh</label>
+        <select id="format">
+          <option value="png">png</option>
+          <option value="svg">svg</option>
+          <option value="pdf">pdf</option>
+          <option value="jpg">jpg</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button onclick="call('me')">Test token (/me)</button>
+      <button onclick="call('file')">Xem file</button>
+      <button onclick="call('nodes')">Xem nodes</button>
+      <button onclick="call('images')">Xuất ảnh</button>
+      <button onclick="call('components')">Components</button>
+      <button onclick="call('styles')">Styles</button>
+      <button class="secondary" onclick="clearOutput()">Xóa kết quả</button>
+    </div>
+
+    <div id="status"></div>
+
+    <label style="margin-top:20px;">Tải kết quả vừa xem xuống máy</label>
+    <div class="btns">
+      <button class="secondary" onclick="download('txt')">⬇ .txt</button>
+      <button class="secondary" onclick="download('docx')">⬇ .docx</button>
+      <button class="secondary" onclick="download('pdf')">⬇ .pdf</button>
+    </div>
+    <div id="downloadStatus" class="hint"></div>
+  </div>
+
+  <div class="panel" style="padding:0;">
+    <div id="output">Kết quả JSON sẽ hiện ở đây...</div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // Luu lai ket qua goi API gan nhat, dung khi bam nut tai xuong
+  let lastResult = { content: '', name: 'figma-export' };
+
+  // Tu dong luu token + fileKey vao localStorage de khong phai nhap lai moi lan reload
+  ['token', 'fileKey', 'nodeIds'].forEach(id => {
+    $(id).value = localStorage.getItem('figma_' + id) || '';
+    $(id).addEventListener('input', () => localStorage.setItem('figma_' + id, $(id).value));
+  });
+
+  function setStatus(msg, isError) {
+    const el = $('status');
+    el.textContent = msg;
+    el.className = isError ? 'err' : 'ok';
+  }
+
+  function setDownloadStatus(msg, isError) {
+    const el = $('downloadStatus');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--err)' : 'var(--muted)';
+  }
+
+  async function call(type) {
+    const token = $('token').value.trim();
+    const fileKey = $('fileKey').value.trim();
+    const nodeIds = $('nodeIds').value.trim();
+    const format = $('format').value;
+
+    if (!fileKey) { setStatus('⚠️ Nhập File Key trước đã.', true); return; }
+    if ((type === 'nodes' || type === 'images') && !nodeIds) {
+      setStatus('⚠️ Endpoint này cần Node IDs.', true); return;
+    }
+
+    let url;
+    switch (type) {
+      case 'me': url = '/api/figma/me'; break;
+      case 'file': url = `/api/figma/file/${fileKey}`; break;
+      case 'nodes': url = `/api/figma/file/${fileKey}/nodes?ids=${encodeURIComponent(nodeIds)}`; break;
+      case 'images': url = `/api/figma/file/${fileKey}/images?ids=${encodeURIComponent(nodeIds)}&format=${format}`; break;
+      case 'components': url = `/api/figma/file/${fileKey}/components`; break;
+      case 'styles': url = `/api/figma/file/${fileKey}/styles`; break;
+    }
+
+    $('output').textContent = 'Đang gọi Figma API...';
+    setStatus('⏳ Đang gọi ' + url, false);
+
+    try {
+      const headers = {};
+      if (token) headers['X-Figma-Token'] = token;
+
+      const res = await fetch(url, { headers });
+      const text = await res.text();
+
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+
+      $('output').textContent = pretty;
+      lastResult = { content: pretty, name: `figma-${type}-${fileKey}` };
+
+      if (res.ok) {
+        setStatus(`✅ Thành công (HTTP ${res.status})`, false);
+      } else {
+        setStatus(`❌ Lỗi HTTP ${res.status}`, true);
+      }
+    } catch (err) {
+      $('output').textContent = String(err);
+      setStatus('❌ Không gọi được server (app đã chạy chưa?)', true);
+    }
+  }
+
+  function clearOutput() {
+    $('output').textContent = 'Kết quả JSON sẽ hiện ở đây...';
+    lastResult = { content: '', name: 'figma-export' };
+    setStatus('', false);
+  }
+
+  async function download(type) {
+    if (!lastResult.content) {
+      setDownloadStatus('⚠️ Chưa có kết quả nào để tải. Bấm 1 nút gọi API ở trên trước.', true);
+      return;
+    }
+
+    if (type === 'txt') {
+      // TXT xu ly ngay tren trinh duyet, khong can goi server
+      const blob = new Blob([lastResult.content], { type: 'text/plain;charset=utf-8' });
+      triggerDownload(blob, lastResult.name + '.txt');
+      setDownloadStatus('✅ Đã tải file .txt', false);
+      return;
+    }
+
+    setDownloadStatus('⏳ Đang tạo file ' + type + '...', false);
+    try {
+      const res = await fetch(`/api/export/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: lastResult.name, content: lastResult.content })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        setDownloadStatus('❌ Lỗi tạo file: ' + errText, true);
+        return;
+      }
+
+      const blob = await res.blob();
+      triggerDownload(blob, lastResult.name + '.' + type);
+      setDownloadStatus('✅ Đã tải file .' + type, false);
+    } catch (err) {
+      setDownloadStatus('❌ ' + String(err), true);
+    }
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+</script>
+
+</body>
+</html>
