@@ -1,6 +1,8 @@
 package com.tgnguyen.layoutlybe.controller;
 
 import com.tgnguyen.layoutlybe.dto.StructureSummary;
+import com.tgnguyen.layoutlybe.model.UINode;
+import com.tgnguyen.layoutlybe.service.FigmaParserService;
 import com.tgnguyen.layoutlybe.service.FigmaService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -11,10 +13,12 @@ import reactor.core.publisher.Mono;
 public class FigmaController {
 
     private final FigmaService figmaService;
+    private final FigmaParserService figmaParserService;
     private static final String TOKEN_HEADER = "X-Figma-Token";
 
-    public FigmaController(FigmaService figmaService) {
+    public FigmaController(FigmaService figmaService, FigmaParserService figmaParserService) {
         this.figmaService = figmaService;
+        this.figmaParserService = figmaParserService;
     }
 
     // GET /api/figma/me
@@ -71,5 +75,18 @@ public class FigmaController {
     public Mono<String> getStyles(@PathVariable String fileKey,
                                    @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
         return figmaService.getFileStyles(fileKey, token);
+    }
+
+    // GET /api/figma/file/{fileKey}/tree — tra ve cay UI da chuan hoa, thay vi JSON tho cua Figma
+    @GetMapping(value = "/file/{fileKey}/tree", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<UINode> getTree(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return figmaService.getFile(fileKey, token)
+                .map(rawJson -> {
+                            try {
+                                return figmaParserService.parseDocumentTree(rawJson);
+                            } catch (Exception ex) {
+                                throw new RuntimeException("Loi khi parse JSON thanh cay UI: " + ex.getMessage(), ex);
+                            }
+                        });
     }
 }
