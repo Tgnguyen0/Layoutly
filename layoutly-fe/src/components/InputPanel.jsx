@@ -1,5 +1,5 @@
 import React from 'react'
-import { KeyRound, FileSearch, Boxes, Palette, Image as ImageIcon, ScanSearch } from 'lucide-react'
+import { KeyRound, FileSearch, Boxes, Palette, Image as ImageIcon, ScanSearch, GitBranch, Code2, PackageCheck } from 'lucide-react'
 
 const FIELD_CLASS =
   'w-full bg-graphite-900 border border-graphite-600 rounded-md px-3 py-2 text-[13px] font-mono text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-blueprint/70 focus:ring-1 focus:ring-blueprint/30 transition-colors'
@@ -102,7 +102,13 @@ export default function InputPanel({
         <ActionButton icon={ImageIcon} label="Xuất ảnh" onClick={() => onCall('images')} disabled={loading} />
         <ActionButton icon={Boxes} label="Components" onClick={() => onCall('components')} disabled={loading} />
         <ActionButton icon={Palette} label="Styles" onClick={() => onCall('styles')} disabled={loading} />
+        <ActionButton icon={GitBranch} label="Xem cây UI" onClick={() => onCall('tree')} disabled={loading} />
+        <ActionButton icon={Code2} label="Xem HTML" onClick={() => onCall('html')} disabled={loading} />
       </div>
+
+      <div className="pt-1 border-t border-graphite-700" />
+
+      <ActionButton icon={PackageCheck} label="Tải mã nguồn (ZIP)" onClick={() => onCall('export')} disabled={loading} primary />
     </div>
   )
 }

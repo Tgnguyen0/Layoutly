@@ -38,6 +38,8 @@ export const figmaApi = {
     }),
   components: (token, fileKey) => request(`/figma/file/${fileKey}/components`, { token }),
   styles: (token, fileKey) => request(`/figma/file/${fileKey}/styles`, { token }),
+  tree: (token, fileKey) => request(`/figma/file/${fileKey}/tree`, { token }),
+  html: (token, fileKey) => request(`/figma/file/${fileKey}/html`, { token }),
 }
 
 export async function exportFile(type, filename, content) {
@@ -72,4 +74,19 @@ export function triggerDownload(blob, filename) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+export async function downloadZipExport(token, fileKey) {
+  const headers = {}
+  if (token) headers['X-Figma-Token'] = token
+
+  const res = await fetch(`${BASE}/figma/file/${fileKey}/export`, { headers })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+
+  const blob = await res.blob()
+  triggerDownload(blob, `${fileKey}-export.zip`)
 }
