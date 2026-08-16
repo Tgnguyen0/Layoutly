@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,6 +23,17 @@ public class FigmaService {
 
     @Value("${figma.api.token}")
     private String figmaToken;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // Cache JSON tho theo fileKey, tranh goi lai Figma lien tuc trong thoi gian ngan (chong 429 Rate limit)
+    private final Map<String, CachedFile> fileCache = new ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MS = 60_000; // 1 phut
+
+    private record CachedFile(String json, long fetchedAt) {
+        boolean isExpired() {
+            return System.currentTimeMillis() - fetchedAt > CACHE_TTL_MS;
+        }
+    }
 
     public FigmaService(WebClient figmaWebClient) {
         this.figmaWebClient = figmaWebClient;
@@ -30,20 +43,34 @@ public class FigmaService {
      * Lay file Figma va PARSE that su vao FigmaNode (khac voi getFile() tra ve String tho).
      * Day la ham backend "hieu" cau truc, dung cho ham analyzeStructure() ben duoi
      * va sau nay se la dau vao cho ComponentClassifier.
+     * dung cache thay the
      */
+//    public Mono<FigmaFileResponse> getFileParsed(String fileKey, String tokenOverride) {
+//        String tokenToUse = resolveToken(tokenOverride);
+//        return figmaWebClient.get()
+//                .uri("/files/" + fileKey)
+//                .header("X-Figma-Token", tokenToUse)
+//                .retrieve()
+//                .onStatus(status -> status.isError(), response ->
+//                        response.bodyToMono(String.class)
+//                                .flatMap(body -> Mono.error(new WebClientResponseException(
+//                                        response.statusCode().value(),
+//                                        "Figma API loi: " + body,
+//                                        null, null, null))))
+//                .bodyToMono(FigmaFileResponse.class);
+//    }
     public Mono<FigmaFileResponse> getFileParsed(String fileKey, String tokenOverride) {
-        String tokenToUse = resolveToken(tokenOverride);
-        return figmaWebClient.get()
-                .uri("/files/" + fileKey)
-                .header("X-Figma-Token", tokenToUse)
-                .retrieve()
-                .onStatus(status -> status.isError(), response ->
-                        response.bodyToMono(String.class)
-                                .flatMap(body -> Mono.error(new WebClientResponseException(
-                                        response.statusCode().value(),
-                                        "Figma API loi: " + body,
-                                        null, null, null))))
-                .bodyToMono(FigmaFileResponse.class);
+        // Tai su dung getFile() (co cache) thay vi tu goi Figma rieng -> tranh nhan doi
+        // so lan goi API cho cung 1 file, la nguyen nhan chinh gay 429 som hon du kien.
+        return getFile(fileKey, tokenOverride)
+                .flatMap(json -> {
+                    try {
+                        return Mono.just(objectMapper.readValue(json, FigmaFileResponse.class));
+                    } catch (Exception e) {
+                        return Mono.error(new RuntimeException(
+                                "Loi parse JSON thanh FigmaFileResponse: " + e.getMessage(), e));
+                    }
+                });
     }
 
     /**
@@ -122,7 +149,12 @@ public class FigmaService {
      * fileKey lay tu URL: figma.com/file/{fileKey}/ten-file
      */
     public Mono<String> getFile(String fileKey, String tokenOverride) {
-        return callFigma("/files/" + fileKey, tokenOverride);
+        CachedFile cached = fileCache.get(fileKey);
+        if (cached != null && !cached.isExpired()) {
+            return Mono.just(cached.json());
+        }
+        return callFigma("/files/" + fileKey, tokenOverride)
+                .doOnNext(json -> fileCache.put(fileKey, new CachedFile(json, System.currentTimeMillis())));
     }
 
     /**
@@ -175,12 +207,28 @@ public class FigmaService {
                 .uri(path)
                 .header("X-Figma-Token", tokenToUse)
                 .retrieve()
-                .onStatus(status -> status.isError(), response ->
-                        response.bodyToMono(String.class)
-                                .flatMap(body -> Mono.error(new WebClientResponseException(
+                .onStatus(status -> status.isError(), response -> {
+                    String retryAfter = response.headers().asHttpHeaders().getFirst("Retry-After");
+                    String rateLimitType = response.headers().asHttpHeaders().getFirst("X-Figma-Rate-Limit-Type");
+
+                    return response.bodyToMono(String.class)
+                            .flatMap(body -> {
+                                String extra = "";
+                                if (retryAfter != null) {
+                                    try {
+                                        long seconds = Long.parseLong(retryAfter);
+                                        extra = String.format(" | Retry-After: %d giay (~%.1f gio) | rate-limit-type: %s",
+                                                seconds, seconds / 3600.0, rateLimitType);
+                                    } catch (NumberFormatException ignored) {
+                                        extra = " | Retry-After: " + retryAfter + " | rate-limit-type: " + rateLimitType;
+                                    }
+                                }
+                                return Mono.error(new WebClientResponseException(
                                         response.statusCode().value(),
-                                        "Figma API loi: " + body,
-                                        null, null, null))))
+                                        "Figma API loi: " + body + extra,
+                                        null, null, null));
+                            });
+                })
                 .bodyToMono(String.class);
     }
 }

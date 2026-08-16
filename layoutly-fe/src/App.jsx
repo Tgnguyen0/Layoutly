@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Frame, Download, FileText, FileType2, Trash2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import InputPanel from './components/InputPanel.jsx'
 import JsonTree from './components/JsonTree.jsx'
-import { figmaApi, exportFile, downloadTextAsTxt, downloadTextAsJson, triggerDownload } from './lib/api.js'
+import { figmaApi, exportFile, downloadTextAsTxt, downloadZipExport, triggerDownload } from './lib/api.js'
 
 const STORAGE_KEYS = ['layoutly_token', 'layoutly_fileKey', 'layoutly_nodeIds']
 
@@ -39,10 +39,33 @@ export default function App() {
       return
     }
 
+    if (type === 'export') {
+      setLoading(true)
+      try {
+        await downloadZipExport(token, fileKey)
+        setStatusMsg('Đã tải file ZIP thành công')
+      } catch (err) {
+        setError(err.message || String(err))
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     setLoading(true)
     setResult(null)
     try {
       let res
+
+      if (type !== 'me' && !fileKey.trim()) {
+        setError('Nhập File Key trước đã.')
+        return
+      }
+      if ((type === 'nodes' || type === 'images') && !nodeIds.trim()) {
+        setError('Endpoint này cần Node IDs.')
+        return
+      }
+
       switch (type) {
         case 'me': res = await figmaApi.me(token); break
         case 'file': res = await figmaApi.file(token, fileKey); break
@@ -50,6 +73,8 @@ export default function App() {
         case 'images': res = await figmaApi.images(token, fileKey, nodeIds, format); break
         case 'components': res = await figmaApi.components(token, fileKey); break
         case 'styles': res = await figmaApi.styles(token, fileKey); break
+        case 'tree': res = await figmaApi.tree(token, fileKey); break
+        case 'html': res = await figmaApi.html(token, fileKey); break
         default: return
       }
       setResult({ data: res.json, raw: res.json ? JSON.stringify(res.json, null, 2) : res.raw, label: type })
