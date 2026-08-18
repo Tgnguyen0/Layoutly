@@ -27,8 +27,8 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"Sora"', 'sans-serif'],
-        body: ['"Inter"', 'sans-serif'],
+        display: ['"Be Vietnam Pro"', 'sans-serif'],
+        body: ['"Be Vietnam Pro"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       backgroundImage: {

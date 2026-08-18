@@ -2,6 +2,7 @@ package com.tgnguyen.layoutlybe.controller;
 
 import com.tgnguyen.layoutlybe.dto.StructureSummary;
 import com.tgnguyen.layoutlybe.model.UINode;
+import com.tgnguyen.layoutlybe.service.AssetExportService;
 import com.tgnguyen.layoutlybe.service.CssGeneratorService;
 import com.tgnguyen.layoutlybe.service.FigmaParserService;
 import com.tgnguyen.layoutlybe.service.FigmaService;
@@ -26,17 +27,21 @@ public class FigmaController {
     private final FigmaParserService figmaParserService;
     private final HtmlGeneratorService htmlGeneratorService;
     private final CssGeneratorService cssGeneratorService;
+    private final AssetExportService assetExportService;
     private static final String TOKEN_HEADER = "X-Figma-Token";
 
     public FigmaController(
             FigmaService figmaService,
             FigmaParserService figmaParserService,
-            HtmlGeneratorService htmlGeneratorService, CssGeneratorService cssGeneratorService
+            HtmlGeneratorService htmlGeneratorService,
+            CssGeneratorService cssGeneratorService,
+            AssetExportService assetExportService
     ) {
         this.figmaService = figmaService;
         this.figmaParserService = figmaParserService;
         this.htmlGeneratorService = htmlGeneratorService;
         this.cssGeneratorService = cssGeneratorService;
+        this.assetExportService = assetExportService;
     }
 
     // GET /api/figma/me
@@ -123,34 +128,65 @@ public class FigmaController {
     }
 
     // GET /api/figma/file/{fileKey}/export — tra ve file ZIP gom index.html + styles.css, tai xuong thuc su
+    @GetMapping(value = "/file/{fileKey}/preview", produces = MediaType.TEXT_HTML_VALUE)
+    public Mono<String> getPreview(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return figmaService.getFile(fileKey, token)
+                .flatMap(rawJson -> {
+                    try {
+                        var tree = figmaParserService.parseDocumentTree(rawJson);
+                        return assetExportService.getPreviewImageUrls(fileKey, token, tree)
+                                .map(imageUrls -> {
+                                    String html = htmlGeneratorService.generate(tree);
+                                    String css = cssGeneratorService.generate(tree, imageUrls);
+                                    return html.replace("<link rel=\"stylesheet\" href=\"styles.css\">", "<style>\n" + css + "\n</style>");
+                                });
+                    } catch (Exception e) {
+                        return Mono.error(new RuntimeException(e));
+                    }
+                });
+    }
+
     @GetMapping("/file/{fileKey}/export")
     public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String fileKey,
                                                   @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
         return figmaService.getFile(fileKey, token)
-                .map(rawJson -> {
+                .flatMap(rawJson -> {
                     try {
                         var tree = figmaParserService.parseDocumentTree(rawJson);
-                        String html = htmlGeneratorService.generate(tree);
-                        String css = cssGeneratorService.generate(tree);
+                        return assetExportService.exportAssets(fileKey, token, tree)
+                                .map(assetBundle -> {
+                                    try {
+                                        String html = htmlGeneratorService.generate(tree);
+                                        String css = cssGeneratorService.generate(tree, assetBundle.cssUrlByNodeId());
 
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-                            zos.putNextEntry(new ZipEntry("index.html"));
-                            zos.write(html.getBytes(StandardCharsets.UTF_8));
-                            zos.closeEntry();
+                                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+                                            zos.putNextEntry(new ZipEntry("index.html"));
+                                            zos.write(html.getBytes(StandardCharsets.UTF_8));
+                                            zos.closeEntry();
 
-                            zos.putNextEntry(new ZipEntry("styles.css"));
-                            zos.write(css.getBytes(StandardCharsets.UTF_8));
-                            zos.closeEntry();
-                        }
+                                            zos.putNextEntry(new ZipEntry("styles.css"));
+                                            zos.write(css.getBytes(StandardCharsets.UTF_8));
+                                            zos.closeEntry();
 
-                        return ResponseEntity.ok()
-                                .contentType(MediaType.parseMediaType("application/zip"))
-                                .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        ContentDisposition.attachment().filename(fileKey + "-export.zip").build().toString())
-                                .body(baos.toByteArray());
+                                            for (var entry : assetBundle.zipAssetByPath().entrySet()) {
+                                                zos.putNextEntry(new ZipEntry(entry.getKey()));
+                                                zos.write(entry.getValue());
+                                                zos.closeEntry();
+                                            }
+                                        }
+
+                                        return ResponseEntity.ok()
+                                                .contentType(MediaType.parseMediaType("application/zip"))
+                                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                                        ContentDisposition.attachment().filename(fileKey + "-export.zip").build().toString())
+                                                .body(baos.toByteArray());
+                                    } catch (Exception e) {
+                                        throw new RuntimeException("Loi khi dong goi ZIP: " + e.getMessage(), e);
+                                    }
+                                });
                     } catch (Exception e) {
-                        throw new RuntimeException("Loi khi xuat file: " + e.getMessage(), e);
+                        return Mono.error(new RuntimeException("Loi khi xuat file: " + e.getMessage(), e));
                     }
                 });
     }

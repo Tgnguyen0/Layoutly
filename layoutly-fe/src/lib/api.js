@@ -40,6 +40,7 @@ export const figmaApi = {
   styles: (token, fileKey) => request(`/figma/file/${fileKey}/styles`, { token }),
   tree: (token, fileKey) => request(`/figma/file/${fileKey}/tree`, { token }),
   html: (token, fileKey) => request(`/figma/file/${fileKey}/html`, { token }),
+  preview: (token, fileKey) => request(`/figma/file/${fileKey}/preview`, { token }),
 }
 
 export async function exportFile(type, filename, content) {
@@ -84,7 +85,12 @@ export async function downloadZipExport(token, fileKey) {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
+    try {
+      const parsed = JSON.parse(text)
+      throw new Error(parsed?.error || text || `HTTP ${res.status}`)
+    } catch {
+      throw new Error(text || `HTTP ${res.status}`)
+    }
   }
 
   const blob = await res.blob()

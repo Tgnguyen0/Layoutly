@@ -30,6 +30,7 @@ public class FigmaParserService {
         uiNode.setName(textOf(node, "name"));
         uiNode.setType(textOf(node, "type"));
         uiNode.setCharacters(textOf(node, "characters"));
+        uiNode.setExportAsImage(shouldExportAsImage(node));
 
         // Vi tri + kich thuoc
         JsonNode box = node.get("absoluteBoundingBox");
@@ -85,6 +86,30 @@ public class FigmaParserService {
         return (value != null && !value.isNull()) ? value.asDouble() : null;
     }
 
+    private boolean shouldExportAsImage(JsonNode node) {
+        String type = textOf(node, "type");
+        if ("VECTOR".equals(type)
+                || "BOOLEAN_OPERATION".equals(type)
+                || "STAR".equals(type)
+                || "LINE".equals(type)
+                || "REGULAR_POLYGON".equals(type)) {
+            return true;
+        }
+
+        JsonNode fills = node.get("fills");
+        if (fills == null || !fills.isArray()) return false;
+
+        for (JsonNode paint : fills) {
+            String paintType = textOf(paint, "type");
+            JsonNode visibleNode = paint.get("visible");
+            boolean visible = visibleNode == null || visibleNode.asBoolean(true);
+            if (visible && "IMAGE".equals(paintType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Lay mau SOLID dau tien, con hien thi (visible != false), tra ve dang rgba() dung cho CSS
     private String extractColor(JsonNode fillsOrStrokes) {
         if (fillsOrStrokes == null || !fillsOrStrokes.isArray()) return null;
@@ -98,11 +123,21 @@ public class FigmaParserService {
                 JsonNode color = paint.get("color");
                 if (color == null) continue;
 
-                double r = color.get("r").asDouble();
-                double g = color.get("g").asDouble();
-                double b = color.get("b").asDouble();
+                JsonNode rNode = color.get("r");
+                JsonNode gNode = color.get("g");
+                JsonNode bNode = color.get("b");
+                if (rNode == null || gNode == null || bNode == null) continue;
+
+                double r = rNode.asDouble();
+                double g = gNode.asDouble();
+                double b = bNode.asDouble();
                 // Do mo co the nam o paint.opacity hoac color.a, uu tien paint.opacity neu co
-                double a = paint.has("opacity") ? paint.get("opacity").asDouble() : color.get("a").asDouble();
+                double a = 1.0;
+                if (paint.has("opacity") && !paint.get("opacity").isNull()) {
+                    a = paint.get("opacity").asDouble();
+                } else if (color.has("a") && !color.get("a").isNull()) {
+                    a = color.get("a").asDouble();
+                }
 
                 int ri = (int) Math.round(r * 255);
                 int gi = (int) Math.round(g * 255);

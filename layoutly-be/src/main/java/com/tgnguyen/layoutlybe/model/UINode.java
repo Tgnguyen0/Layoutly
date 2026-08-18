@@ -18,6 +18,7 @@ public class UINode {
     private String type; // FRAME, GROUP, TEXT, RECTANGLE, COMPONENT, INSTANCE, VECTOR...
     private String characters;
     private List<UINode> children = new ArrayList<>();
+    private boolean exportAsImage;
 
     // Vi tri va kich thuoc tuyet doi (tu absoluteBoundingBox)
     private Double x;
