@@ -16,6 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -127,6 +128,24 @@ public class FigmaController {
                 });
     }
 
+    // GET /api/figma/file/{fileKey}/css — sinh CSS rieng, tach biet hoan toan voi HTML.
+    // Dung chung voi /html o tren de co du 2 file rieng le (khong dong goi ZIP, khong inline).
+    // Luu y: anh (background-image) se KHONG co URL o day, vi lay URL preview tu Figma
+    // can goi them 1 request rieng (xem AssetExportService.getPreviewImageUrls) - endpoint
+    // nay chi phuc vu xem nhanh phan style layout/mau/chu, chua co asset that.
+    @GetMapping(value = "/file/{fileKey}/css", produces = "text/css")
+    public Mono<String> getCss(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return figmaService.getFile(fileKey, token)
+                .map(rawJson -> {
+                    try {
+                        var tree = figmaParserService.parseDocumentTree(rawJson);
+                        return cssGeneratorService.generate(tree);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Loi khi sinh CSS: " + e.getMessage(), e);
+                    }
+                });
+    }
+
     // GET /api/figma/file/{fileKey}/export — tra ve file ZIP gom index.html + styles.css, tai xuong thuc su
     @GetMapping(value = "/file/{fileKey}/preview", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<String> getPreview(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
@@ -146,8 +165,16 @@ public class FigmaController {
                 });
     }
 
+    // GET /api/figma/file/{fileKey}/export?type=FRAME (type la optional, mac dinh FRAME)
+    // Xuat ZIP gom NHIEU file .html rieng biet - moi node co type khop se thanh 1 file,
+    // KHONG con gop chung tat ca vao 1 index.html duy nhat nhu truoc nua.
+    // Vi du: mac dinh type=FRAME -> file dat theo ten tung Frame (hero-section.html,
+    // footer.html...). Muon tach theo don vi khac (SECTION, COMPONENT...) thi truyen
+    // ?type=SECTION. Neu khong tim thay node nao khop type, tra loi HTTP 400 kem message
+    // ro rang thay vi zip rong kho hieu.
     @GetMapping("/file/{fileKey}/export")
     public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String fileKey,
+                                                  @RequestParam(defaultValue = "CANVAS") String type,
                                                   @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
         return figmaService.getFile(fileKey, token)
                 .flatMap(rawJson -> {
@@ -156,14 +183,22 @@ public class FigmaController {
                         return assetExportService.exportAssets(fileKey, token, tree)
                                 .map(assetBundle -> {
                                     try {
-                                        String html = htmlGeneratorService.generate(tree);
+                                        Map<String, String> htmlFiles = htmlGeneratorService.generateByType(tree, type);
+                                        if (htmlFiles.isEmpty()) {
+                                            throw new IllegalArgumentException(
+                                                    "Khong tim thay node nao co type = " + type
+                                                            + " trong file nay. Goi /file/" + fileKey
+                                                            + "/structure de xem cac type dang co.");
+                                        }
                                         String css = cssGeneratorService.generate(tree, assetBundle.cssUrlByNodeId());
 
                                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
                                         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-                                            zos.putNextEntry(new ZipEntry("index.html"));
-                                            zos.write(html.getBytes(StandardCharsets.UTF_8));
-                                            zos.closeEntry();
+                                            for (var entry : htmlFiles.entrySet()) {
+                                                zos.putNextEntry(new ZipEntry(entry.getKey()));
+                                                zos.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                                                zos.closeEntry();
+                                            }
 
                                             zos.putNextEntry(new ZipEntry("styles.css"));
                                             zos.write(css.getBytes(StandardCharsets.UTF_8));
@@ -181,6 +216,8 @@ public class FigmaController {
                                                 .header(HttpHeaders.CONTENT_DISPOSITION,
                                                         ContentDisposition.attachment().filename(fileKey + "-export.zip").build().toString())
                                                 .body(baos.toByteArray());
+                                    } catch (IllegalArgumentException e) {
+                                        throw e; // de GlobalExceptionHandler tra ve 400 thay vi 500
                                     } catch (Exception e) {
                                         throw new RuntimeException("Loi khi dong goi ZIP: " + e.getMessage(), e);
                                     }

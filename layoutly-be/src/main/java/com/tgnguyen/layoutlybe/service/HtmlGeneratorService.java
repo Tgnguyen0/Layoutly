@@ -3,6 +3,9 @@ package com.tgnguyen.layoutlybe.service;
 import com.tgnguyen.layoutlybe.model.UINode;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Service
 public class HtmlGeneratorService {
     // Sinh HTML cau truc (chua co CSS) tu cay UINode.
@@ -40,6 +43,98 @@ public class HtmlGeneratorService {
 
         sb.append(" </section>\n</main>\n</body>\n</html>\n");
         return sb.toString();
+    }
+
+    /**
+     * Tach HTML thanh nhieu file rieng, dua vao thuoc tinh "type" cua UINode.
+     * Vi du targetType = "FRAME": moi node co type = FRAME trong toan bo cay (bat ke
+     * dang o Canvas nao, long sau bao nhieu tang) se thanh 1 file .html doc lap,
+     * thay vi gop chung tat ca vao 1 file index.html duy nhat nhu generate(root) o tren.
+     *
+     * Luu y quan trong: neu 1 FRAME nam long BEN TRONG 1 FRAME khac cung khop type,
+     * ca 2 se deu tach thanh file rieng - frame cha van chua nguyen frame con o trong
+     * no (render lai lan nua), khong bi "mat" node con. Day la lua chon co chu dich:
+     * de nguoi dung tu quyet dinh dung file nao (file cha co day du, hay tung file con
+     * rieng le de tai su dung nhu component).
+     *
+     * @return Map filename (vi du "primary-button.html") -> noi dung HTML day du cua node do.
+     *         Ten file tu dong danh so lai (-2, -3...) neu trung ten sau khi sanitize.
+     */
+    public Map<String, String> generateByType(UINode root, String targetType) {
+        Map<String, String> result = new LinkedHashMap<>();
+        Map<String, Integer> usedNames = new LinkedHashMap<>();
+        collectByType(root, targetType, result, usedNames);
+        return result;
+    }
+
+    private void collectByType(UINode node, String targetType,
+                                Map<String, String> result, Map<String, Integer> usedNames) {
+        if (node == null) return;
+
+        if (targetType.equals(node.getType())) {
+            String filename = uniqueFilename(node, usedNames);
+            result.put(filename, generateSingleNodeDocument(node));
+            // DUNG DE QUY o day - node con ben trong (du cung khop type) da nam tron
+            // trong file vua tach, khong can tach rieng nua. Neu di tiep xuong duoi,
+            // 1 Frame man hinh chua nhieu Frame nho (button wrapper, card wrapper...)
+            // se bi tach du thua hang chuc file khong phai la "man hinh" that su.
+            // Muon tach ca node long ben trong (hanh vi cu), doi return; thanh
+            // duyet tiep xuong duoi binh thuong.
+            return;
+        }
+
+        if (node.getChildren() != null) {
+            for (UINode child : node.getChildren()) {
+                collectByType(child, targetType, result, usedNames);
+            }
+        }
+    }
+
+    /** Sinh 1 file .html hoan chinh, lay dung 1 node lam goc (thay vi toan bo DOCUMENT). */
+    private String generateSingleNodeDocument(UINode node) {
+        StringBuilder sb = new StringBuilder();
+
+        // QUAN TRONG: node duoc tach (VD: CANVAS) co the KHONG co absoluteBoundingBox rieng
+        // (Figma khong gan x/y/width/height cho CANVAS - no la "trang vo han"). Neu dung
+        // thang node.getWidth()/getHeight() se ra null -> fallback sai ve 1440x900 co dinh,
+        // cat mat phan noi dung dai hon, va offset hardcode 0,0 lam lech toa do cac con.
+        // Phai tinh lai bounds thuc te tu chinh cac node con (giong het cach generate()
+        // o tren dang lam cho toan bo Document) de ra dung kich thuoc + offset that.
+        Bounds bounds = findRenderableBounds(node);
+        double width = bounds != null ? bounds.width() : (node.getWidth() != null ? node.getWidth() : 1440);
+        double height = bounds != null ? bounds.height() : (node.getHeight() != null ? node.getHeight() : 900);
+        double offsetX = bounds != null ? bounds.minX : 0;
+        double offsetY = bounds != null ? bounds.minY : 0;
+
+        sb.append("<!DOCTYPE html>\n<html lang=\"vi\">\n<head>\n")
+                .append("<meta charset=\"UTF-8\">\n")
+                .append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+                .append("  <meta name=\"figma-width\" content=\"").append(round(width)).append("\">\n")
+                .append("  <meta name=\"figma-height\" content=\"").append(round(height)).append("\">\n")
+                .append("  <title>").append(escape(node.getName())).append("</title>\n")
+                .append("  <link rel=\"stylesheet\" href=\"styles.css\">\n")
+                .append("</head>\n<body>\n");
+        sb.append("<main class=\"figma-page\" style=\"--figma-width: ")
+                .append(round(width))
+                .append("; --figma-height: ")
+                .append(round(height))
+                .append("; --figma-offset-x: ")
+                .append(round(offsetX))
+                .append("; --figma-offset-y: ")
+                .append(round(offsetY))
+                .append(";\">\n")
+                .append(" <section class=\"figma-canvas\">\n");
+
+        renderNode(node, 2, sb);
+
+        sb.append(" </section>\n</main>\n</body>\n</html>\n");
+        return sb.toString();
+    }
+
+    private String uniqueFilename(UINode node, Map<String, Integer> usedNames) {
+        String base = toClassName(node.getName());
+        int count = usedNames.merge(base, 1, Integer::sum);
+        return (count > 1 ? base + "-" + count : base) + ".html";
     }
 
     private void renderNode(UINode node, int depth, StringBuilder sb) {

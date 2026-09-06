@@ -15,6 +15,36 @@ public class CssGeneratorService {
 
     public String generate(UINode root, Map<String, String> imageUrlByNodeId) {
         StringBuilder sb = new StringBuilder();
+        appendBaseStyles(sb);
+
+        for (UINode child : root.getChildren()) {
+            walk(child, root, sb, imageUrlByNodeId);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Sinh CSS cho 1 subtree DOC LAP (dung khi tach HTML theo type - vi du moi FRAME
+     * thanh 1 file rieng). Khac voi generate(root,...) o cho: node duoc truyen vao se
+     * TU CO 1 CSS rule cho chinh no (position:relative, lam goc toa do cho cac con ben trong),
+     * vi luc nay node khong con "cha" thuc su trong file rieng le nay nua.
+     */
+    public String generateForNode(UINode node, Map<String, String> imageUrlByNodeId) {
+        StringBuilder sb = new StringBuilder();
+        appendBaseStyles(sb);
+
+        sb.append(".node-").append(toClassName(node.getId())).append(" {\n");
+        sb.append("  position: relative;\n");
+        writeCommonProperties(node, sb, imageUrlByNodeId);
+        sb.append("}\n\n");
+
+        for (UINode child : node.getChildren()) {
+            walk(child, node, sb, imageUrlByNodeId);
+        }
+        return sb.toString();
+    }
+
+    private void appendBaseStyles(StringBuilder sb) {
         sb.append("* { box-sizing: border-box; margin: 0; padding: 0; }\n\n");
         sb.append("html, body { min-height: 100%; }\n");
         sb.append("body {\n");
@@ -38,11 +68,6 @@ public class CssGeneratorService {
         sb.append("  transform-origin: top left;\n");
         sb.append("}\n\n");
         sb.append(".figma-node { overflow: hidden; }\n\n");
-
-        for (UINode child : root.getChildren()) {
-            walk(child, root, sb, imageUrlByNodeId);
-        }
-        return sb.toString();
     }
 
     private void walk(UINode node, UINode parent, StringBuilder sb, Map<String, String> imageUrlByNodeId) {
@@ -70,6 +95,17 @@ public class CssGeneratorService {
             sb.append("  position: relative;\n");
         }
 
+        writeCommonProperties(node, sb, imageUrlByNodeId);
+
+        sb.append("}\n\n");
+
+        for (UINode child : node.getChildren()) {
+            walk(child, node, sb, imageUrlByNodeId);
+        }
+    }
+
+    /** Cac thuoc tinh dung chung giua walk() (node co parent) va generateForNode() (node la goc rieng). */
+    private void writeCommonProperties(UINode node, StringBuilder sb, Map<String, String> imageUrlByNodeId) {
         if (node.getWidth() != null) sb.append("  width: ").append(round(node.getWidth())).append("px;\n");
         if (node.getHeight() != null) sb.append("  height: ").append(round(node.getHeight())).append("px;\n");
 
@@ -99,12 +135,6 @@ public class CssGeneratorService {
             if (node.getFontWeight() != null) sb.append("  font-weight: ").append(node.getFontWeight().intValue()).append(";\n");
             if (node.getLineHeight() != null) sb.append("  line-height: ").append(round(node.getLineHeight())).append("px;\n");
             if (node.getLetterSpacing() != null) sb.append("  letter-spacing: ").append(round(node.getLetterSpacing())).append("px;\n");
-        }
-
-        sb.append("}\n\n");
-
-        for (UINode child : node.getChildren()) {
-            walk(child, node, sb, imageUrlByNodeId);
         }
     }
 

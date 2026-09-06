@@ -17,6 +17,12 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", ex.getMessage()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
     @ExceptionHandler(WebClientResponseException.class)
     public ResponseEntity<Map<String, String>> handleFigmaError(WebClientResponseException ex) {
         return ResponseEntity.status(ex.getStatusCode())
@@ -25,7 +31,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntimeError(RuntimeException ex) {
+        String message = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", ex.getMessage()));
+            .body(Map.of("error", message));
     }
 }
