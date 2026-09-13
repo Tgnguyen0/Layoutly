@@ -25,14 +25,29 @@ public class FigmaService {
     private String figmaToken;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Cache JSON tho theo fileKey, tranh goi lai Figma lien tuc trong thoi gian ngan (chong 429 Rate limit)
-    private final Map<String, CachedFile> fileCache = new ConcurrentHashMap<>();
-    private static final long CACHE_TTL_MS = 60_000; // 1 phut
+    // Cache tong quat theo cache key bat ky (path + tham so) - ap dung cho MOI endpoint
+    // Figma, khong chi rieng getFile() nhu truoc. Day la lop phong ve chinh chong khoa
+    // tai khoan do goi API lap lai qua nhieu lan trong luc dev/test.
+    private final Map<String, CachedFile> responseCache = new ConcurrentHashMap<>();
+    // TTL dai hon nhieu so ban dau (1 phut) - uu tien an toan hon la du lieu that moi
+    // tung giay trong giai doan dev/test. Co the chinh qua application.properties.
+    @Value("${figma.cache.ttl-seconds:300}")
+    private long cacheTtlSeconds;
 
     private record CachedFile(String json, long fetchedAt) {
-        boolean isExpired() {
-            return System.currentTimeMillis() - fetchedAt > CACHE_TTL_MS;
+        boolean isExpired(long ttlMs) {
+            return System.currentTimeMillis() - fetchedAt > ttlMs;
         }
+    }
+
+    /** Goi co cache: neu cacheKey con han, tra ket qua cu, khong dung Figma. */
+    private Mono<String> cachedCall(String cacheKey, Mono<String> realCall) {
+        CachedFile cached = responseCache.get(cacheKey);
+        long ttlMs = cacheTtlSeconds * 1000;
+        if (cached != null && !cached.isExpired(ttlMs)) {
+            return Mono.just(cached.json());
+        }
+        return realCall.doOnNext(json -> responseCache.put(cacheKey, new CachedFile(json, System.currentTimeMillis())));
     }
 
     public FigmaService(WebClient figmaWebClient) {
@@ -149,12 +164,7 @@ public class FigmaService {
      * fileKey lay tu URL: figma.com/file/{fileKey}/ten-file
      */
     public Mono<String> getFile(String fileKey, String tokenOverride) {
-        CachedFile cached = fileCache.get(fileKey);
-        if (cached != null && !cached.isExpired()) {
-            return Mono.just(cached.json());
-        }
-        return callFigma("/files/" + fileKey, tokenOverride)
-                .doOnNext(json -> fileCache.put(fileKey, new CachedFile(json, System.currentTimeMillis())));
+        return cachedCall("file:" + fileKey, callFigma("/files/" + fileKey, tokenOverride));
     }
 
     /**
@@ -162,29 +172,34 @@ public class FigmaService {
      * nodeIds cach nhau boi dau phay, vi du: "1:2,1:3"
      */
     public Mono<String> getFileNodes(String fileKey, String nodeIds, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/nodes?ids=" + nodeIds, tokenOverride);
+        return cachedCall("nodes:" + fileKey + ":" + nodeIds,
+                callFigma("/files/" + fileKey + "/nodes?ids=" + nodeIds, tokenOverride));
     }
 
     /**
      * Xuat anh (PNG/SVG/PDF/JPG) cua cac node trong file
      * format: png | svg | pdf | jpg
+     * QUAN TRONG: day la endpoint hay bi goi lap lai NHIEU NHAT trong luc test export
+     * (moi lan goi /export la 1 lan goi lai cho nay du file khong doi gi) - cache o day
+     * la noi giam rui ro khoa tai khoan nhieu nhat.
      */
     public Mono<String> getImages(String fileKey, String nodeIds, String format, String tokenOverride) {
-        return callFigma("/images/" + fileKey + "?ids=" + nodeIds + "&format=" + format, tokenOverride);
+        return cachedCall("images:" + fileKey + ":" + nodeIds + ":" + format,
+                callFigma("/images/" + fileKey + "?ids=" + nodeIds + "&format=" + format, tokenOverride));
     }
 
     /**
      * Lay danh sach components trong file
      */
     public Mono<String> getFileComponents(String fileKey, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/components", tokenOverride);
+        return cachedCall("components:" + fileKey, callFigma("/files/" + fileKey + "/components", tokenOverride));
     }
 
     /**
      * Lay danh sach styles (color, text, effect styles) trong file
      */
     public Mono<String> getFileStyles(String fileKey, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/styles", tokenOverride);
+        return cachedCall("styles:" + fileKey, callFigma("/files/" + fileKey + "/styles", tokenOverride));
     }
 
     /**
@@ -203,6 +218,22 @@ public class FigmaService {
         } catch (IllegalStateException ex) {
             return Mono.error(ex);
         }
+        // Giu khoang cach toi thieu giua 2 lan goi THAT ra Figma (khong tinh cac lan
+        // duoc phuc vu tu cache) - phong truong hop test nhieu file/tham so khac nhau
+        // dồn dap, van co the bi he thong chong abuse cua Figma danh dau du moi lan
+        // deu la request hop le rieng le. 300ms/request ~ toi da 200 request/phut.
+        return Mono.defer(() -> {
+            long now = System.currentTimeMillis();
+            long last = lastRealCallAt.getAndSet(now);
+            long waitMs = Math.max(0, MIN_INTERVAL_MS - (now - last));
+            return Mono.delay(java.time.Duration.ofMillis(waitMs)).then(doCallFigma(path, tokenToUse));
+        });
+    }
+
+    private final java.util.concurrent.atomic.AtomicLong lastRealCallAt = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final long MIN_INTERVAL_MS = 300;
+
+    private Mono<String> doCallFigma(String path, String tokenToUse) {
         return figmaWebClient.get()
                 .uri(path)
                 .header("X-Figma-Token", tokenToUse)

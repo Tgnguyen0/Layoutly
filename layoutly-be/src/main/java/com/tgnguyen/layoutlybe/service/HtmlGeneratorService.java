@@ -3,7 +3,9 @@ package com.tgnguyen.layoutlybe.service;
 import com.tgnguyen.layoutlybe.model.UINode;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -43,6 +45,34 @@ public class HtmlGeneratorService {
 
         sb.append(" </section>\n</main>\n</body>\n</html>\n");
         return sb.toString();
+    }
+
+    public Map<String, String> generateAuto(UINode root) {
+        Map<String, String> result = new LinkedHashMap<>();
+        Map<String, Integer> usedNames = new LinkedHashMap<>();
+        if (root == null || root.getChildren() == null) return result;
+
+        for (UINode canvas : root.getChildren()) {
+            if (!"CANVAS".equals(canvas.getType())) continue;
+
+            List<UINode> topFrames = new ArrayList<>();
+            if (canvas.getChildren() != null) {
+                for (UINode child : canvas.getChildren()) {
+                    if ("FRAME".equals(child.getType())) topFrames.add(child);
+                }
+            }
+
+            if (topFrames.size() <= 1) {
+                // Chi co 1 (hoac khong co) Frame ngoai cung -> xem nhu 1 trang hoan chinh
+                result.put(uniqueFilename(canvas, usedNames), generateSingleNodeDocument(canvas));
+            } else {
+                // Nhieu Frame doc lap tren cung 1 Page -> tach rieng tung thiet ke
+                for (UINode frame : topFrames) {
+                    result.put(uniqueFilename(frame, usedNames), generateSingleNodeDocument(frame));
+                }
+            }
+        }
+        return result;
     }
 
     /**

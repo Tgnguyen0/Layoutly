@@ -77,11 +77,11 @@ export function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-export async function downloadZipExport(token, fileKey) {
+export async function downloadZipExport(token, fileKey, type = 'AUTO') {
   const headers = {}
   if (token) headers['X-Figma-Token'] = token
 
-  const res = await fetch(`${BASE}/figma/file/${fileKey}/export`, { headers })
+  const res = await fetch(`${BASE}/figma/file/${fileKey}/export?type=${type}`, { headers })
 
   if (!res.ok) {
     const text = await res.text()

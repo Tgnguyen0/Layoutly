@@ -25,6 +25,7 @@ export default function InputPanel({
   token, setToken,
   fileKey, setFileKey,
   nodeIds, setNodeIds,
+  exportType, setExportType, 
   format, setFormat,
   onCall,
   loading,
@@ -90,6 +91,21 @@ export default function InputPanel({
           <option value="svg">svg</option>
           <option value="pdf">pdf</option>
           <option value="jpg">jpg</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-[11px] uppercase tracking-wider text-ink-500 mb-1.5 block">
+          Tách file theo
+        </label>
+        <select
+          value={exportType}
+          onChange={(e) => setExportType(e.target.value)}
+          className={FIELD_CLASS}
+        >
+          <option value="AUTO">Tự động (khuyến nghị)</option>
+          <option value="CANVAS">Theo Page</option>
+          <option value="FRAME">Theo Frame</option>
         </select>
       </div>
 

@@ -174,7 +174,7 @@ public class FigmaController {
     // ro rang thay vi zip rong kho hieu.
     @GetMapping("/file/{fileKey}/export")
     public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String fileKey,
-                                                  @RequestParam(defaultValue = "CANVAS") String type,
+                                                  @RequestParam(defaultValue = "AUTO") String type,
                                                   @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
         return figmaService.getFile(fileKey, token)
                 .flatMap(rawJson -> {
@@ -183,7 +183,9 @@ public class FigmaController {
                         return assetExportService.exportAssets(fileKey, token, tree)
                                 .map(assetBundle -> {
                                     try {
-                                        Map<String, String> htmlFiles = htmlGeneratorService.generateByType(tree, type);
+                                        Map<String, String> htmlFiles = "AUTO".equalsIgnoreCase(type)
+                                                ? htmlGeneratorService.generateAuto(tree)
+                                                : htmlGeneratorService.generateByType(tree, type);
                                         if (htmlFiles.isEmpty()) {
                                             throw new IllegalArgumentException(
                                                     "Khong tim thay node nao co type = " + type
@@ -226,5 +228,52 @@ public class FigmaController {
                         return Mono.error(new RuntimeException("Loi khi xuat file: " + e.getMessage(), e));
                     }
                 });
+    }
+
+    // POST /api/figma/test/export-by-type?type=CANVAS
+    // Endpoint danh RIENG CHO TEST: nhan JSON Figma da luu san trong body (khong goi Figma
+    // API that), de test di test lai khong gioi han so lan, KHONG CO RUI RO KHOA TAI KHOAN
+    // du test hang tram lan trong 1 buoi debug.
+    //
+    // Cach dung:
+    //   1. Goi 1 LAN DUY NHAT: GET /file/{fileKey} -> luu ra figma-sample.json
+    //   2. Test khong gioi han:
+    //      curl -X POST "http://localhost:8080/api/figma/test/export-by-type?type=CANVAS" \
+    //        -H "Content-Type: application/json" \
+    //        --data-binary @figma-sample.json -o export.zip
+    @PostMapping(value = "/test/export-by-type", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<byte[]> testExportByType(@RequestBody String rawJson,
+                                                     @RequestParam(defaultValue = "CANVAS") String type) {
+        try {
+            var tree = figmaParserService.parseDocumentTree(rawJson);
+            Map<String, String> htmlFiles = htmlGeneratorService.generateByType(tree, type);
+            if (htmlFiles.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Khong tim thay node nao co type = " + type + " trong JSON nay");
+            }
+            String css = cssGeneratorService.generate(tree);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+                for (var entry : htmlFiles.entrySet()) {
+                    zos.putNextEntry(new ZipEntry(entry.getKey()));
+                    zos.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                    zos.closeEntry();
+                }
+                zos.putNextEntry(new ZipEntry("styles.css"));
+                zos.write(css.getBytes(StandardCharsets.UTF_8));
+                zos.closeEntry();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("application/zip"))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.attachment().filename("test-export.zip").build().toString())
+                    .body(baos.toByteArray());
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Loi khi test export: " + e.getMessage(), e);
+        }
     }
 }

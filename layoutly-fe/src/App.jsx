@@ -107,6 +107,7 @@ export default function App() {
   const [previewHeight, setPreviewHeight] = useState(720)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
+  const [exportType, setExportType] = useState('AUTO')
 
   const fileKey = useMemo(() => extractFileKey(figmaUrl), [figmaUrl])
 
@@ -152,7 +153,7 @@ export default function App() {
     setLoading(true)
     try {
       localStorage.setItem('layoutly_token', token)
-      await downloadZipExport(token, fileKey)
+      downloadZipExport(token, fileKey, exportType)
       setStatus('Đã tạo và tải file ZIP thành công.')
     } catch (err) {
       setError(err.message || String(err))
@@ -343,6 +344,23 @@ export default function App() {
                   />
                 </section>
               )}
+
+              {/* THÊM ĐOẠN NÀY */}
+              <section className="mt-4 flex items-center gap-2.5">
+                <label htmlFor="export-type" className="text-sm font-semibold text-white">
+                  Tách file theo
+                </label>
+                <select
+                  id="export-type"
+                  value={exportType}
+                  onChange={(event) => setExportType(event.target.value)}
+                  className="rounded-md border border-white/30 bg-white px-3 py-2 text-sm font-medium text-zinc-900 outline-none"
+                >
+                  <option value="AUTO">Tự động (khuyến nghị)</option>
+                  <option value="CANVAS">Theo Page</option>
+                  <option value="FRAME">Theo Frame</option>
+                </select>
+              </section>
 
               {(status || error) && (
                 <p className="mt-4 text-sm font-semibold text-white" role={error ? 'alert' : 'status'}>
