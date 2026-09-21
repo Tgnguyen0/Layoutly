@@ -52,10 +52,13 @@ public class CssGeneratorService {
         sb.append("  background: #1e1e1e;\n");
         sb.append("  overflow-x: hidden;\n");
         sb.append("}\n\n");
+        // Luon scale theo ty le 100vw / figma-width (khong cap min(1, ...) nua) de trang
+        // luon lap day chieu rong man hinh trinh duyet - kem ca khi thiet ke Figma nho hon
+        // viewport (VD: frame mobile 375px tren man hinh desktop rong) thi truoc day se
+        // hien thi rat nho o giua trang, gio se duoc phong to lap day chieu rong man hinh.
         sb.append(".figma-page {\n");
-        sb.append("  width: 100%;\n");
-        sb.append("  max-width: calc(var(--figma-width) * 1px);\n");
-        sb.append("  height: calc(var(--figma-height) * 1px * min(1, 100vw / (var(--figma-width) * 1px)));\n");
+        sb.append("  width: 100vw;\n");
+        sb.append("  height: calc(var(--figma-height) * 1px * (100vw / (var(--figma-width) * 1px)));\n");
         sb.append("  margin: 0 auto;\n");
         sb.append("  background: #ffffff;\n");
         sb.append("  overflow: hidden;\n");
@@ -64,7 +67,7 @@ public class CssGeneratorService {
         sb.append("  position: relative;\n");
         sb.append("  width: calc(var(--figma-width) * 1px);\n");
         sb.append("  height: calc(var(--figma-height) * 1px);\n");
-        sb.append("  transform: scale(min(1, 100vw / (var(--figma-width) * 1px)));\n");
+        sb.append("  transform: scale(calc(100vw / (var(--figma-width) * 1px)));\n");
         sb.append("  transform-origin: top left;\n");
         sb.append("}\n\n");
         sb.append(".figma-node { overflow: hidden; }\n\n");
