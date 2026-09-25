@@ -1,6 +1,8 @@
 package com.tgnguyen.layoutlybe.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tgnguyen.layoutlybe.dto.StructureSummary;
+import com.tgnguyen.layoutlybe.exception.FigmaRateLimitException;
 import com.tgnguyen.layoutlybe.model.FigmaFileResponse;
 import com.tgnguyen.layoutlybe.model.FigmaNode;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,13 +10,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.ConcurrentHashMap;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class FigmaService {
@@ -25,14 +34,36 @@ public class FigmaService {
     private String figmaToken;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Cache JSON tho theo fileKey, tranh goi lai Figma lien tuc trong thoi gian ngan (chong 429 Rate limit)
-    private final Map<String, CachedFile> fileCache = new ConcurrentHashMap<>();
-    private static final long CACHE_TTL_MS = 60_000; // 1 phut
+    // Cache tong quat theo cache key bat ky (path + tham so) - ap dung cho MOI endpoint
+    // Figma, khong chi rieng getFile() nhu truoc. Day la lop phong ve chinh chong khoa
+    // tai khoan do goi API lap lai qua nhieu lan trong luc dev/test.
+    private final Map<String, CachedFile> responseCache = new ConcurrentHashMap<>();
+    // TTL dai hon nhieu so ban dau (1 phut) - uu tien an toan hon la du lieu that moi
+    // tung giay trong giai doan dev/test. Co the chinh qua application.properties.
+    @Value("${figma.cache.ttl-seconds:300}")
+    private long cacheTtlSeconds;
+    @Value("${figma.api.min-interval-ms:6500}")
+    private long minIntervalMs;
+    @Value("${layoutly.cache.directory:.layoutly-cache}")
+    private String cacheDirectory;
+
+    private final Map<String, Long> rateLimitedUntilByToken = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicLong nextRealCallAt = new java.util.concurrent.atomic.AtomicLong(0);
 
     private record CachedFile(String json, long fetchedAt) {
-        boolean isExpired() {
-            return System.currentTimeMillis() - fetchedAt > CACHE_TTL_MS;
+        boolean isExpired(long ttlMs) {
+            return System.currentTimeMillis() - fetchedAt > ttlMs;
         }
+    }
+
+    /** Goi co cache: neu cacheKey con han, tra ket qua cu, khong dung Figma. */
+    private Mono<String> cachedCall(String cacheKey, Mono<String> realCall) {
+        CachedFile cached = responseCache.get(cacheKey);
+        long ttlMs = cacheTtlSeconds * 1000;
+        if (cached != null && !cached.isExpired(ttlMs)) {
+            return Mono.just(cached.json());
+        }
+        return realCall.doOnNext(json -> responseCache.put(cacheKey, new CachedFile(json, System.currentTimeMillis())));
     }
 
     public FigmaService(WebClient figmaWebClient) {
@@ -80,27 +111,37 @@ public class FigmaService {
      * tot nhat cho ComponentClassifier o buoc sau).
      */
     public Mono<StructureSummary> analyzeStructure(String fileKey, String tokenOverride) {
-        return getFileParsed(fileKey, tokenOverride).map(file -> {
-            FigmaNode root = file.document();
+        return getFileParsed(fileKey, tokenOverride).map(this::analyzeStructure);
+    }
 
-            Map<String, Integer> countByType = new LinkedHashMap<>();
-            List<String> canvasNames = new ArrayList<>();
-            List<StructureSummary.AutoLayoutFrame> autoLayoutFrames = new ArrayList<>();
+    public StructureSummary analyzeStructureJson(String rawJson) {
+        try {
+            return analyzeStructure(objectMapper.readValue(rawJson, FigmaFileResponse.class));
+        } catch (Exception exception) {
+            throw new RuntimeException("Loi parse JSON khi phan tich structure: " + exception.getMessage(), exception);
+        }
+    }
 
-            int[] totalNodes = {0};
-            int[] maxDepth = {0};
+    private StructureSummary analyzeStructure(FigmaFileResponse file) {
+        FigmaNode root = file.document();
 
-            traverse(root, 0, countByType, canvasNames, autoLayoutFrames, totalNodes, maxDepth);
+        Map<String, Integer> countByType = new LinkedHashMap<>();
+        List<String> canvasNames = new ArrayList<>();
+        List<StructureSummary.AutoLayoutFrame> autoLayoutFrames = new ArrayList<>();
 
-            return new StructureSummary(
-                    root != null ? root.type() : null,
-                    totalNodes[0],
-                    maxDepth[0],
-                    countByType,
-                    canvasNames,
-                    autoLayoutFrames
-            );
-        });
+        int[] totalNodes = {0};
+        int[] maxDepth = {0};
+
+        traverse(root, 0, countByType, canvasNames, autoLayoutFrames, totalNodes, maxDepth);
+
+        return new StructureSummary(
+                root != null ? root.type() : null,
+                totalNodes[0],
+                maxDepth[0],
+                countByType,
+                canvasNames,
+                autoLayoutFrames
+        );
     }
 
     /** Duyet de quy 1 lan qua toan bo cay, vua dem vua thu thap thong tin can thiet. */
@@ -149,12 +190,27 @@ public class FigmaService {
      * fileKey lay tu URL: figma.com/file/{fileKey}/ten-file
      */
     public Mono<String> getFile(String fileKey, String tokenOverride) {
-        CachedFile cached = fileCache.get(fileKey);
-        if (cached != null && !cached.isExpired()) {
-            return Mono.just(cached.json());
+        String cacheKey = "file:" + fileKey;
+        CachedFile memoryCached = responseCache.get(cacheKey);
+        if (memoryCached != null) {
+            writePersistentFile(fileKey, memoryCached.json());
+            return Mono.just(memoryCached.json());
         }
+
+        Optional<String> diskCached = readPersistentFile(fileKey);
+        if (diskCached.isPresent()) {
+            responseCache.put(cacheKey, new CachedFile(diskCached.get(), System.currentTimeMillis()));
+            return Mono.just(diskCached.get());
+        }
+
         return callFigma("/files/" + fileKey, tokenOverride)
-                .doOnNext(json -> fileCache.put(fileKey, new CachedFile(json, System.currentTimeMillis())));
+                .doOnNext(json -> cacheFileResponse(fileKey, json));
+    }
+
+    /** Import/refresh path: bypasses the old short-lived response cache. */
+    public Mono<String> fetchFileFresh(String fileKey, String tokenOverride) {
+        return callFigma("/files/" + fileKey, tokenOverride)
+                .doOnNext(json -> cacheFileResponse(fileKey, json));
     }
 
     /**
@@ -162,29 +218,34 @@ public class FigmaService {
      * nodeIds cach nhau boi dau phay, vi du: "1:2,1:3"
      */
     public Mono<String> getFileNodes(String fileKey, String nodeIds, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/nodes?ids=" + nodeIds, tokenOverride);
+        return cachedCall("nodes:" + fileKey + ":" + nodeIds,
+                callFigma("/files/" + fileKey + "/nodes?ids=" + nodeIds, tokenOverride));
     }
 
     /**
      * Xuat anh (PNG/SVG/PDF/JPG) cua cac node trong file
      * format: png | svg | pdf | jpg
+     * QUAN TRONG: day la endpoint hay bi goi lap lai NHIEU NHAT trong luc test export
+     * (moi lan goi /export la 1 lan goi lai cho nay du file khong doi gi) - cache o day
+     * la noi giam rui ro khoa tai khoan nhieu nhat.
      */
     public Mono<String> getImages(String fileKey, String nodeIds, String format, String tokenOverride) {
-        return callFigma("/images/" + fileKey + "?ids=" + nodeIds + "&format=" + format, tokenOverride);
+        return cachedCall("images:" + fileKey + ":" + nodeIds + ":" + format,
+                callFigma("/images/" + fileKey + "?ids=" + nodeIds + "&format=" + format, tokenOverride));
     }
 
     /**
      * Lay danh sach components trong file
      */
     public Mono<String> getFileComponents(String fileKey, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/components", tokenOverride);
+        return cachedCall("components:" + fileKey, callFigma("/files/" + fileKey + "/components", tokenOverride));
     }
 
     /**
      * Lay danh sach styles (color, text, effect styles) trong file
      */
     public Mono<String> getFileStyles(String fileKey, String tokenOverride) {
-        return callFigma("/files/" + fileKey + "/styles", tokenOverride);
+        return cachedCall("styles:" + fileKey, callFigma("/files/" + fileKey + "/styles", tokenOverride));
     }
 
     /**
@@ -203,32 +264,135 @@ public class FigmaService {
         } catch (IllegalStateException ex) {
             return Mono.error(ex);
         }
+        // Real calls are serialized below; cache hits never enter this queue.
+        return scheduledCall(path, tokenToUse, 0);
+    }
+
+    private Mono<String> scheduledCall(String path, String token, int retryCount) {
+        return Mono.defer(() -> {
+            long remainingSeconds = remainingCooldownSeconds(token);
+            if (remainingSeconds > 0) {
+                return Mono.error(new FigmaRateLimitException(remainingSeconds));
+            }
+
+            long waitMs = reserveRequestSlot();
+            return Mono.delay(Duration.ofMillis(waitMs))
+                    .then(doCallFigma(path, token))
+                    .onErrorResume(FigmaRateLimitException.class, exception -> {
+                        if (retryCount >= 2 || exception.getRetryAfterSeconds() > 30) {
+                            return Mono.error(exception);
+                        }
+                        long retryDelay = Math.max(1, exception.getRetryAfterSeconds());
+                        return Mono.delay(Duration.ofSeconds(retryDelay))
+                                .then(scheduledCall(path, token, retryCount + 1));
+                    });
+        });
+    }
+
+    private long reserveRequestSlot() {
+        long interval = Math.max(0, minIntervalMs);
+        while (true) {
+            long now = System.currentTimeMillis();
+            long current = nextRealCallAt.get();
+            long scheduledAt = Math.max(now, current);
+            if (nextRealCallAt.compareAndSet(current, scheduledAt + interval)) {
+                return Math.max(0, scheduledAt - now);
+            }
+        }
+    }
+
+    private long remainingCooldownSeconds(String token) {
+        long until = rateLimitedUntilByToken.getOrDefault(token, 0L);
+        long remainingMs = until - System.currentTimeMillis();
+        if (remainingMs <= 0) {
+            rateLimitedUntilByToken.remove(token, until);
+            return 0;
+        }
+        return Math.max(1, (remainingMs + 999) / 1000);
+    }
+
+    private Mono<String> doCallFigma(String path, String tokenToUse) {
         return figmaWebClient.get()
                 .uri(path)
                 .header("X-Figma-Token", tokenToUse)
                 .retrieve()
-                .onStatus(status -> status.isError(), response -> {
-                    String retryAfter = response.headers().asHttpHeaders().getFirst("Retry-After");
+                .onStatus(status -> status.value() == 429, response -> {
+                    long retryAfterSeconds = parseRetryAfter(
+                            response.headers().asHttpHeaders().getFirst("Retry-After"));
+                    String planTier = response.headers().asHttpHeaders().getFirst("X-Figma-Plan-Tier");
                     String rateLimitType = response.headers().asHttpHeaders().getFirst("X-Figma-Rate-Limit-Type");
-
+                    String upgradeUrl = response.headers().asHttpHeaders().getFirst("X-Figma-Upgrade-Link");
+                    rateLimitedUntilByToken.put(
+                            tokenToUse,
+                            System.currentTimeMillis() + Duration.ofSeconds(retryAfterSeconds).toMillis());
+                    return response.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(ignored -> Mono.error(new FigmaRateLimitException(
+                                    retryAfterSeconds, planTier, rateLimitType, upgradeUrl)));
+                })
+                .onStatus(status -> status.isError(), response -> {
                     return response.bodyToMono(String.class)
                             .flatMap(body -> {
-                                String extra = "";
-                                if (retryAfter != null) {
-                                    try {
-                                        long seconds = Long.parseLong(retryAfter);
-                                        extra = String.format(" | Retry-After: %d giay (~%.1f gio) | rate-limit-type: %s",
-                                                seconds, seconds / 3600.0, rateLimitType);
-                                    } catch (NumberFormatException ignored) {
-                                        extra = " | Retry-After: " + retryAfter + " | rate-limit-type: " + rateLimitType;
-                                    }
-                                }
                                 return Mono.error(new WebClientResponseException(
                                         response.statusCode().value(),
-                                        "Figma API loi: " + body + extra,
-                                        null, null, null));
+                                        "Figma API loi: " + body,
+                                        response.headers().asHttpHeaders(), null, null));
                             });
                 })
                 .bodyToMono(String.class);
+    }
+
+    private void cacheFileResponse(String fileKey, String json) {
+        responseCache.put("file:" + fileKey, new CachedFile(json, System.currentTimeMillis()));
+        writePersistentFile(fileKey, json);
+    }
+
+    private Optional<String> readPersistentFile(String fileKey) {
+        Path cacheFile = cacheFile(fileKey);
+        if (cacheFile == null || !Files.isRegularFile(cacheFile)) return Optional.empty();
+        try {
+            return Optional.of(Files.readString(cacheFile, StandardCharsets.UTF_8));
+        } catch (Exception exception) {
+            return Optional.empty();
+        }
+    }
+
+    private void writePersistentFile(String fileKey, String json) {
+        Path cacheFile = cacheFile(fileKey);
+        if (cacheFile == null) return;
+        try {
+            Files.createDirectories(cacheFile.getParent());
+            Path temporary = cacheFile.resolveSibling(cacheFile.getFileName() + ".tmp");
+            Files.writeString(temporary, json, StandardCharsets.UTF_8);
+            try {
+                Files.move(temporary, cacheFile, StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
+            } catch (Exception ignoredAtomicMove) {
+                Files.move(temporary, cacheFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception ignoredCacheFailure) {
+            // Disk cache is an optimization; a write failure must not break conversion.
+        }
+    }
+
+    private Path cacheFile(String fileKey) {
+        if (fileKey == null || !fileKey.matches("[a-zA-Z0-9_-]+")) return null;
+        Path root = Path.of(cacheDirectory).toAbsolutePath().normalize().resolve("figma-files");
+        Path file = root.resolve(fileKey + ".json").normalize();
+        return file.startsWith(root) ? file : null;
+    }
+
+    private long parseRetryAfter(String value) {
+        if (value == null || value.isBlank()) return 60;
+        try {
+            return Math.max(0, Long.parseLong(value));
+        } catch (NumberFormatException ignored) {
+            try {
+                ZonedDateTime retryAt = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME);
+                return Math.max(0, Duration.between(ZonedDateTime.now(retryAt.getZone()), retryAt).toSeconds());
+            } catch (Exception ignoredDate) {
+                return 60;
+            }
+        }
     }
 }

@@ -3,17 +3,9 @@ package com.tgnguyen.layoutlybe.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
+import java.util.Map;
 
-/**
- * Dai dien 1 node bat ky trong cay Figma: DOCUMENT -> CANVAS -> FRAME -> ... -> TEXT/RECTANGLE/VECTOR
- * Dung 1 record duy nhat cho moi loai node (thay vi sealed interface rieng tung type)
- * de don gian hoa giai doan "nghien cuu cau truc" nay. Field nao JSON khong co se tu la null,
- * KHONG duoc doc field cua 1 type ma chua kiem tra "type" truoc (vi du: doc characters() tren
- * 1 node FRAME se luon tra ve null, khong loi, nhung cung khong co y nghia).
- *
- * ignoreUnknown = true vi Figma response co rat nhieu field khac (scrollBehavior, blendMode,
- * constraints, reactions...) khong can thiet cho viec sinh code, bo qua het.
- */
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FigmaNode(
         String id,
@@ -27,16 +19,24 @@ public record FigmaNode(
         String layoutMode,                 // HORIZONTAL | VERTICAL | GRID | NONE
         String primaryAxisAlignItems,      // -> justify-content
         String counterAxisAlignItems,      // -> align-items
-        Integer itemSpacing,               // -> gap
-        Integer paddingLeft,
-        Integer paddingRight,
-        Integer paddingTop,
-        Integer paddingBottom,
+        Double itemSpacing,               // -> gap
+        Double paddingLeft,
+        Double paddingRight,
+        Double paddingTop,
+        Double paddingBottom,
+        String layoutPositioning,         // AUTO | ABSOLUTE
+        String layoutSizingHorizontal,    // FIXED | HUG | FILL
+        String layoutSizingVertical,      // FIXED | HUG | FILL
+        Boolean clipsContent,
 
         // ----- Rieng cho hinh dang (FRAME/RECTANGLE/COMPONENT...) -----
-        Integer cornerRadius,
+        Double cornerRadius,
+        Double opacity,
+        Boolean visible,
+        Double strokeWeight,
         List<Fill> fills,
         List<Stroke> strokes,
+        List<Effect> effects,
         BoundingBox absoluteBoundingBox,
 
         // ----- Rieng cho TEXT -----
@@ -44,7 +44,9 @@ public record FigmaNode(
         TextStyle style,
 
         // ----- Rieng cho INSTANCE (component da dat variant) -----
-        java.util.Map<String, ComponentProperty> componentProperties
+        String componentId,
+        String componentSetId,
+        Map<String, ComponentProperty> componentProperties
 ) {
 
     /** true neu node nay con the chua node con (khong phai leaf node nhu TEXT/VECTOR/RECTANGLE don gian) */
@@ -56,19 +58,48 @@ public record FigmaNode(
     public record BoundingBox(double x, double y, double width, double height) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Fill(String type, Color color) {}
+    public record Fill(
+            String type,
+            Color color,
+            Double opacity,
+            Boolean visible,
+            String imageRef,
+            String scaleMode
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Stroke(String type, Color color) {}
+    public record Stroke(
+            String type,
+            Color color,
+            Double opacity,
+            Boolean visible
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Effect(
+            String type,
+            Boolean visible,
+            Double radius,
+            Double spread,
+            Vector offset,
+            Color color
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Vector(double x, double y) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Color(double r, double g, double b, double a) {
         /** Convert Figma color (0..1 float) sang hex CSS, vi du #3B82F6 */
         public String toHex() {
-            int red = (int) Math.round(r * 255);
-            int green = (int) Math.round(g * 255);
-            int blue = (int) Math.round(b * 255);
+            int red = channelToByte(r);
+            int green = channelToByte(g);
+            int blue = channelToByte(b);
             return String.format("#%02X%02X%02X", red, green, blue);
+        }
+
+        private static int channelToByte(double channel) {
+            return (int) Math.round(Math.max(0, Math.min(1, channel)) * 255);
         }
     }
 
@@ -78,7 +109,11 @@ public record FigmaNode(
             Double fontSize,
             Double fontWeight,
             Double lineHeightPx,
-            Double letterSpacing
+            Double letterSpacing,
+            String textAlignHorizontal,
+            String textAlignVertical,
+            String textCase,
+            String textDecoration
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

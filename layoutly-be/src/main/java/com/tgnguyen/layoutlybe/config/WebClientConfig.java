@@ -12,12 +12,15 @@ public class WebClientConfig {
     @Value("${figma.api.base-url}")
     private String baseUrl;
 
+    @Value("${figma.api.max-in-memory-size-mb:100}")
+    private int maxInMemorySizeMb;
+
     @Bean
     public WebClient figmaWebClient() {
-        // File Figma co the rat lon (nhieu MB JSON), tang gioi han buffer
-        // mac dinh cua WebClient (256KB) len 20MB de tranh loi DataBufferLimitException
+        // File Figma co the rat lon, nen gioi han nay duoc cau hinh theo moi truong.
+        int maxInMemorySizeBytes = Math.multiplyExact(maxInMemorySizeMb, 1024 * 1024);
         ExchangeStrategies strategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(20 * 1024 * 1024))
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxInMemorySizeBytes))
                 .build();
 
         return WebClient.builder()
