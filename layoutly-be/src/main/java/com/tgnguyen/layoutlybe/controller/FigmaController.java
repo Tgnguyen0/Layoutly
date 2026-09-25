@@ -2,11 +2,16 @@ package com.tgnguyen.layoutlybe.controller;
 
 import com.tgnguyen.layoutlybe.dto.StructureSummary;
 import com.tgnguyen.layoutlybe.model.UINode;
-import com.tgnguyen.layoutlybe.service.AssetExportService;
+import com.tgnguyen.layoutlybe.model.ir.DesignNode;
+import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
 import com.tgnguyen.layoutlybe.service.CssGeneratorService;
 import com.tgnguyen.layoutlybe.service.FigmaParserService;
 import com.tgnguyen.layoutlybe.service.FigmaService;
+import com.tgnguyen.layoutlybe.service.FigmaSnapshotService;
 import com.tgnguyen.layoutlybe.service.HtmlGeneratorService;
+import com.tgnguyen.layoutlybe.service.HtmlProjectExportService;
+import com.tgnguyen.layoutlybe.service.ReactGeneratorService;
+import com.tgnguyen.layoutlybe.service.ReactProjectExportService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -28,7 +33,10 @@ public class FigmaController {
     private final FigmaParserService figmaParserService;
     private final HtmlGeneratorService htmlGeneratorService;
     private final CssGeneratorService cssGeneratorService;
-    private final AssetExportService assetExportService;
+    private final ReactGeneratorService reactGeneratorService;
+    private final ReactProjectExportService reactProjectExportService;
+    private final FigmaSnapshotService snapshotService;
+    private final HtmlProjectExportService htmlProjectExportService;
     private static final String TOKEN_HEADER = "X-Figma-Token";
 
     public FigmaController(
@@ -36,13 +44,19 @@ public class FigmaController {
             FigmaParserService figmaParserService,
             HtmlGeneratorService htmlGeneratorService,
             CssGeneratorService cssGeneratorService,
-            AssetExportService assetExportService
+            ReactGeneratorService reactGeneratorService,
+            ReactProjectExportService reactProjectExportService,
+            FigmaSnapshotService snapshotService,
+            HtmlProjectExportService htmlProjectExportService
     ) {
         this.figmaService = figmaService;
         this.figmaParserService = figmaParserService;
         this.htmlGeneratorService = htmlGeneratorService;
         this.cssGeneratorService = cssGeneratorService;
-        this.assetExportService = assetExportService;
+        this.reactGeneratorService = reactGeneratorService;
+        this.reactProjectExportService = reactProjectExportService;
+        this.snapshotService = snapshotService;
+        this.htmlProjectExportService = htmlProjectExportService;
     }
 
     // GET /api/figma/me
@@ -91,7 +105,8 @@ public class FigmaController {
     @GetMapping(value = "/file/{fileKey}/structure", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<StructureSummary> getStructure(@PathVariable String fileKey,
                                                 @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.analyzeStructure(fileKey, token);
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> figmaService.analyzeStructureJson(snapshot.getRawJson()));
     }
 
     // GET /api/figma/file/{fileKey}/styles
@@ -104,28 +119,31 @@ public class FigmaController {
     // GET /api/figma/file/{fileKey}/tree — tra ve cay UI da chuan hoa, thay vi JSON tho cua Figma
     @GetMapping(value = "/file/{fileKey}/tree", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<UINode> getTree(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.getFile(fileKey, token)
-                .map(rawJson -> {
-                            try {
-                                return figmaParserService.parseDocumentTree(rawJson);
-                            } catch (Exception ex) {
-                                throw new RuntimeException("Loi khi parse JSON thanh cay UI: " + ex.getMessage(), ex);
-                            }
-                        });
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> DesignNodeMapper.toLegacy(snapshot.getDesignIr()));
+    }
+
+    // GET /api/figma/file/{fileKey}/ir - framework-neutral Design IR used by all generators.
+    @GetMapping(value = "/file/{fileKey}/ir", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<DesignNode> getDesignIr(@PathVariable String fileKey,
+                                        @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> snapshot.getDesignIr());
     }
 
     // GET /api/figma/file/{fileKey}/html — sinh HTML cau truc (chua co CSS) tu cay UI
     @GetMapping(value = "file/{fileKey}/html", produces = MediaType.TEXT_PLAIN_VALUE)
     public Mono<String> getHtml(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.getFile(fileKey, token)
-                .map(rawJson -> {
-                    try {
-                        var tree = figmaParserService.parseDocumentTree(rawJson);
-                        return htmlGeneratorService.generate(tree);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> htmlGeneratorService.generate(snapshot.getDesignIr()));
+    }
+
+    // GET /api/figma/file/{fileKey}/react - returns the first generated page component for quick inspection.
+    @GetMapping(value = "/file/{fileKey}/react", produces = MediaType.TEXT_PLAIN_VALUE)
+    public Mono<String> getReact(@PathVariable String fileKey,
+                                 @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> reactGeneratorService.generate(snapshot.getDesignIr()));
     }
 
     // GET /api/figma/file/{fileKey}/css — sinh CSS rieng, tach biet hoan toan voi HTML.
@@ -135,34 +153,25 @@ public class FigmaController {
     // nay chi phuc vu xem nhanh phan style layout/mau/chu, chua co asset that.
     @GetMapping(value = "/file/{fileKey}/css", produces = "text/css")
     public Mono<String> getCss(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.getFile(fileKey, token)
-                .map(rawJson -> {
-                    try {
-                        var tree = figmaParserService.parseDocumentTree(rawJson);
-                        return cssGeneratorService.generate(tree);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Loi khi sinh CSS: " + e.getMessage(), e);
-                    }
-                });
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .map(snapshot -> cssGeneratorService.generate(snapshot.getDesignIr()));
     }
 
     // GET /api/figma/file/{fileKey}/export — tra ve file ZIP gom index.html + styles.css, tai xuong thuc su
     @GetMapping(value = "/file/{fileKey}/preview", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<String> getPreview(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.getFile(fileKey, token)
-                .flatMap(rawJson -> {
-                    try {
-                        var tree = figmaParserService.parseDocumentTree(rawJson);
-                        return assetExportService.getPreviewImageUrls(fileKey, token, tree)
-                                .map(imageUrls -> {
-                                    String html = htmlGeneratorService.generate(tree);
-                                    String css = cssGeneratorService.generate(tree, imageUrls);
-                                    return html.replace("<link rel=\"stylesheet\" href=\"styles.css\">", "<style>\n" + css + "\n</style>");
-                                });
-                    } catch (Exception e) {
-                        return Mono.error(new RuntimeException(e));
-                    }
-                });
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
+                        .map(assets -> {
+                            Map<String, String> imageUrls = new java.util.LinkedHashMap<>();
+                            assets.cssUrlByNodeId().forEach((nodeId, path) -> imageUrls.put(
+                                    nodeId,
+                                    "/api/snapshots/" + snapshot.getSnapshotId() + "/assets/"
+                                            + java.nio.file.Path.of(path).getFileName()));
+                            String html = htmlGeneratorService.generate(snapshot.getDesignIr());
+                            String css = cssGeneratorService.generate(snapshot.getDesignIr(), imageUrls);
+                            return html.replace("<link rel=\"stylesheet\" href=\"styles.css\">", "<style>\n" + css + "\n</style>");
+                        }));
     }
 
     // GET /api/figma/file/{fileKey}/export?type=FRAME (type la optional, mac dinh FRAME)
@@ -176,58 +185,28 @@ public class FigmaController {
     public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String fileKey,
                                                   @RequestParam(defaultValue = "AUTO") String type,
                                                   @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return figmaService.getFile(fileKey, token)
-                .flatMap(rawJson -> {
-                    try {
-                        var tree = figmaParserService.parseDocumentTree(rawJson);
-                        return assetExportService.exportAssets(fileKey, token, tree)
-                                .map(assetBundle -> {
-                                    try {
-                                        Map<String, String> htmlFiles = "AUTO".equalsIgnoreCase(type)
-                                                ? htmlGeneratorService.generateAuto(tree)
-                                                : htmlGeneratorService.generateByType(tree, type);
-                                        if (htmlFiles.isEmpty()) {
-                                            throw new IllegalArgumentException(
-                                                    "Khong tim thay node nao co type = " + type
-                                                            + " trong file nay. Goi /file/" + fileKey
-                                                            + "/structure de xem cac type dang co.");
-                                        }
-                                        String css = cssGeneratorService.generate(tree, assetBundle.cssUrlByNodeId());
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
+                        .map(assets -> ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType("application/zip"))
+                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                        ContentDisposition.attachment().filename(fileKey + "-export.zip").build().toString())
+                                .body(htmlProjectExportService.export(snapshot.getDesignIr(), assets, type))));
+    }
 
-                                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                                        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-                                            for (var entry : htmlFiles.entrySet()) {
-                                                zos.putNextEntry(new ZipEntry(entry.getKey()));
-                                                zos.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
-                                                zos.closeEntry();
-                                            }
-
-                                            zos.putNextEntry(new ZipEntry("styles.css"));
-                                            zos.write(css.getBytes(StandardCharsets.UTF_8));
-                                            zos.closeEntry();
-
-                                            for (var entry : assetBundle.zipAssetByPath().entrySet()) {
-                                                zos.putNextEntry(new ZipEntry(entry.getKey()));
-                                                zos.write(entry.getValue());
-                                                zos.closeEntry();
-                                            }
-                                        }
-
-                                        return ResponseEntity.ok()
-                                                .contentType(MediaType.parseMediaType("application/zip"))
-                                                .header(HttpHeaders.CONTENT_DISPOSITION,
-                                                        ContentDisposition.attachment().filename(fileKey + "-export.zip").build().toString())
-                                                .body(baos.toByteArray());
-                                    } catch (IllegalArgumentException e) {
-                                        throw e; // de GlobalExceptionHandler tra ve 400 thay vi 500
-                                    } catch (Exception e) {
-                                        throw new RuntimeException("Loi khi dong goi ZIP: " + e.getMessage(), e);
-                                    }
-                                });
-                    } catch (Exception e) {
-                        return Mono.error(new RuntimeException("Loi khi xuat file: " + e.getMessage(), e));
-                    }
-                });
+    // GET /api/figma/file/{fileKey}/export/react - runnable React 18 + Vite project.
+    @GetMapping("/file/{fileKey}/export/react")
+    public Mono<ResponseEntity<byte[]>> exportReact(@PathVariable String fileKey,
+                                                     @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
+        return snapshotService.getOrImportByFileKey(fileKey, token)
+                .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
+                        .map(assets -> ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType("application/zip"))
+                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                        ContentDisposition.attachment()
+                                                .filename(fileKey + "-react.zip")
+                                                .build().toString())
+                                .body(reactProjectExportService.export(snapshot.getDesignIr(), assets))));
     }
 
     // POST /api/figma/test/export-by-type?type=CANVAS
@@ -245,7 +224,7 @@ public class FigmaController {
     public ResponseEntity<byte[]> testExportByType(@RequestBody String rawJson,
                                                      @RequestParam(defaultValue = "CANVAS") String type) {
         try {
-            var tree = figmaParserService.parseDocumentTree(rawJson);
+            var tree = figmaParserService.parseDesignTree(rawJson);
             Map<String, String> htmlFiles = htmlGeneratorService.generateByType(tree, type);
             if (htmlFiles.isEmpty()) {
                 throw new IllegalArgumentException(

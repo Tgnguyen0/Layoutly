@@ -1,0 +1,24 @@
+{
+  "name": "Horizontal Fixture",
+  "version": "fixture-v1",
+  "lastModified": "2026-09-23T00:00:00Z",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [{
+      "id": "1:0",
+      "name": "Page",
+      "type": "CANVAS",
+      "children": [{
+        "id": "2:0",
+        "name": "Horizontal Row",
+        "type": "FRAME",
+        "layoutMode": "HORIZONTAL",
+        "itemSpacing": 16,
+        "absoluteBoundingBox": { "x": 0, "y": 0, "width": 600, "height": 100 },
+        "children": []
+      }]
+    }]
+  }
+}

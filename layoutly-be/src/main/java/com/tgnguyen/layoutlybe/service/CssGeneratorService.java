@@ -1,148 +1,294 @@
 package com.tgnguyen.layoutlybe.service;
 
 import com.tgnguyen.layoutlybe.model.UINode;
+import com.tgnguyen.layoutlybe.model.ir.Alignment;
+import com.tgnguyen.layoutlybe.model.ir.Bounds;
+import com.tgnguyen.layoutlybe.model.ir.DesignNode;
+import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
+import com.tgnguyen.layoutlybe.model.ir.Direction;
+import com.tgnguyen.layoutlybe.model.ir.EdgeInsets;
+import com.tgnguyen.layoutlybe.model.ir.LayoutSpec;
+import com.tgnguyen.layoutlybe.model.ir.LayoutType;
+import com.tgnguyen.layoutlybe.model.ir.Positioning;
+import com.tgnguyen.layoutlybe.model.ir.SizingMode;
+import com.tgnguyen.layoutlybe.model.ir.SizingSpec;
+import com.tgnguyen.layoutlybe.model.ir.StyleSpec;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class CssGeneratorService {
 
-    // Sinh CSS cho toan bo cay. Dung absolute positioning tam thoi (chua co Auto Layout/Flexbox - tuan 5).
     public String generate(UINode root) {
-        return generate(root, Map.of());
+        return generate(DesignNodeMapper.fromLegacy(root), Map.of());
     }
 
     public String generate(UINode root, Map<String, String> imageUrlByNodeId) {
-        StringBuilder sb = new StringBuilder();
-        appendBaseStyles(sb);
-
-        for (UINode child : root.getChildren()) {
-            walk(child, root, sb, imageUrlByNodeId);
-        }
-        return sb.toString();
+        return generate(DesignNodeMapper.fromLegacy(root), imageUrlByNodeId);
     }
 
-    /**
-     * Sinh CSS cho 1 subtree DOC LAP (dung khi tach HTML theo type - vi du moi FRAME
-     * thanh 1 file rieng). Khac voi generate(root,...) o cho: node duoc truyen vao se
-     * TU CO 1 CSS rule cho chinh no (position:relative, lam goc toa do cho cac con ben trong),
-     * vi luc nay node khong con "cha" thuc su trong file rieng le nay nua.
-     */
+    public String generate(DesignNode root) {
+        return generate(root, Map.of());
+    }
+
+    public String generate(DesignNode root, Map<String, String> imageUrlByNodeId) {
+        StringBuilder css = new StringBuilder();
+        appendBaseStyles(css);
+        if (root == null) return css.toString();
+
+        for (DesignNode child : childrenOf(root)) {
+            walk(child, root, css, imageUrlByNodeId);
+        }
+        return css.toString();
+    }
+
     public String generateForNode(UINode node, Map<String, String> imageUrlByNodeId) {
-        StringBuilder sb = new StringBuilder();
-        appendBaseStyles(sb);
+        return generateForNode(DesignNodeMapper.fromLegacy(node), imageUrlByNodeId);
+    }
 
-        sb.append(".node-").append(toClassName(node.getId())).append(" {\n");
-        sb.append("  position: relative;\n");
-        writeCommonProperties(node, sb, imageUrlByNodeId);
-        sb.append("}\n\n");
+    public String generateForNode(DesignNode node, Map<String, String> imageUrlByNodeId) {
+        StringBuilder css = new StringBuilder();
+        appendBaseStyles(css);
+        if (node == null) return css.toString();
 
-        for (UINode child : node.getChildren()) {
-            walk(child, node, sb, imageUrlByNodeId);
+        css.append(".node-").append(toClassName(node.getId())).append(" {\n");
+        css.append("  position: relative;\n");
+        writeLayoutContainer(node, css);
+        writeCommonProperties(node, null, css, imageUrlByNodeId);
+        css.append("}\n\n");
+
+        for (DesignNode child : childrenOf(node)) {
+            walk(child, node, css, imageUrlByNodeId);
         }
-        return sb.toString();
+        return css.toString();
     }
 
-    private void appendBaseStyles(StringBuilder sb) {
-        sb.append("* { box-sizing: border-box; margin: 0; padding: 0; }\n\n");
-        sb.append("html, body { min-height: 100%; }\n");
-        sb.append("body {\n");
-        sb.append("  font-family: Arial, sans-serif;\n");
-        sb.append("  background: #1e1e1e;\n");
-        sb.append("  overflow-x: hidden;\n");
-        sb.append("}\n\n");
-        // Luon scale theo ty le 100vw / figma-width (khong cap min(1, ...) nua) de trang
-        // luon lap day chieu rong man hinh trinh duyet - kem ca khi thiet ke Figma nho hon
-        // viewport (VD: frame mobile 375px tren man hinh desktop rong) thi truoc day se
-        // hien thi rat nho o giua trang, gio se duoc phong to lap day chieu rong man hinh.
-        sb.append(".figma-page {\n");
-        sb.append("  width: 100vw;\n");
-        sb.append("  height: calc(var(--figma-height) * 1px * (100vw / (var(--figma-width) * 1px)));\n");
-        sb.append("  margin: 0 auto;\n");
-        sb.append("  background: #ffffff;\n");
-        sb.append("  overflow: hidden;\n");
-        sb.append("}\n\n");
-        sb.append(".figma-canvas {\n");
-        sb.append("  position: relative;\n");
-        sb.append("  width: calc(var(--figma-width) * 1px);\n");
-        sb.append("  height: calc(var(--figma-height) * 1px);\n");
-        sb.append("  transform: scale(calc(100vw / (var(--figma-width) * 1px)));\n");
-        sb.append("  transform-origin: top left;\n");
-        sb.append("}\n\n");
-        sb.append(".figma-node { overflow: hidden; }\n\n");
-    }
-
-    private void walk(UINode node, UINode parent, StringBuilder sb, Map<String, String> imageUrlByNodeId) {
-        // CANVAS khong render, di thang xuong children
+    private void walk(DesignNode node, DesignNode parent, StringBuilder css,
+                      Map<String, String> imageUrlByNodeId) {
         if ("CANVAS".equals(node.getType())) {
-            for (UINode child : node.getChildren()) {
-                walk(child, parent, sb, imageUrlByNodeId);
+            for (DesignNode child : childrenOf(node)) {
+                walk(child, parent, css, imageUrlByNodeId);
             }
             return;
         }
 
-        sb.append(".node-").append(toClassName(node.getId())).append(" {\n");
+        css.append(".node-").append(toClassName(node.getId())).append(" {\n");
+        writePosition(node, parent, css);
+        writeLayoutContainer(node, css);
+        writeCommonProperties(node, parent, css, imageUrlByNodeId);
+        css.append("}\n\n");
 
-        // Vi tri: tinh tuong doi so voi parent, vi parent se duoc dat position:relative
-        if (node.getX() != null && parent.getX() != null) {
-            sb.append("  position: absolute;\n");
-            sb.append("  left: ").append(round(node.getX() - safe(parent.getX()))).append("px;\n");
-            sb.append("  top: ").append(round(node.getY() - safe(parent.getY()))).append("px;\n");
-        } else if (node.getX() != null && node.getY() != null) {
-            sb.append("  position: absolute;\n");
-            sb.append("  left: calc(").append(round(node.getX())).append("px - (var(--figma-offset-x) * 1px));\n");
-            sb.append("  top: calc(").append(round(node.getY())).append("px - (var(--figma-offset-y) * 1px));\n");
-        } else {
-            // Node goc cung (khong co parent toa do) - lam moc position:relative de chua cac con absolute
-            sb.append("  position: relative;\n");
-        }
-
-        writeCommonProperties(node, sb, imageUrlByNodeId);
-
-        sb.append("}\n\n");
-
-        for (UINode child : node.getChildren()) {
-            walk(child, node, sb, imageUrlByNodeId);
+        for (DesignNode child : childrenOf(node)) {
+            walk(child, node, css, imageUrlByNodeId);
         }
     }
 
-    /** Cac thuoc tinh dung chung giua walk() (node co parent) va generateForNode() (node la goc rieng). */
-    private void writeCommonProperties(UINode node, StringBuilder sb, Map<String, String> imageUrlByNodeId) {
-        if (node.getWidth() != null) sb.append("  width: ").append(round(node.getWidth())).append("px;\n");
-        if (node.getHeight() != null) sb.append("  height: ").append(round(node.getHeight())).append("px;\n");
+    private void writePosition(DesignNode node, DesignNode parent, StringBuilder css) {
+        boolean parentIsFlex = isAutoFlex(parent);
+        boolean forcedAbsolute = layoutOf(node).getPositioning() == Positioning.ABSOLUTE;
+        if (parentIsFlex && !forcedAbsolute) {
+            css.append("  position: relative;\n");
+            return;
+        }
+
+        Bounds bounds = boundsOf(node);
+        Bounds parentBounds = boundsOf(parent);
+        if (bounds.x() != null && bounds.y() != null && parentBounds.x() != null && parentBounds.y() != null) {
+            css.append("  position: absolute;\n");
+            css.append("  left: ").append(round(bounds.x() - parentBounds.x())).append("px;\n");
+            css.append("  top: ").append(round(bounds.y() - parentBounds.y())).append("px;\n");
+        } else if (bounds.x() != null && bounds.y() != null) {
+            css.append("  position: absolute;\n");
+            css.append("  left: calc(").append(round(bounds.x()))
+                    .append("px - (var(--figma-offset-x) * 1px));\n");
+            css.append("  top: calc(").append(round(bounds.y()))
+                    .append("px - (var(--figma-offset-y) * 1px));\n");
+        } else {
+            css.append("  position: relative;\n");
+        }
+    }
+
+    private void writeLayoutContainer(DesignNode node, StringBuilder css) {
+        LayoutSpec layout = layoutOf(node);
+        if (layout.getType() != LayoutType.AUTO_FLEX) return;
+
+        css.append("  display: flex;\n");
+        css.append("  flex-direction: ")
+                .append(layout.getDirection() == Direction.COLUMN ? "column" : "row")
+                .append(";\n");
+        if (layout.getGap() != null) css.append("  gap: ").append(round(layout.getGap())).append("px;\n");
+        writePadding(layout.getPadding(), css);
+        css.append("  justify-content: ").append(toJustifyContent(layout.getMainAxisAlignment())).append(";\n");
+        css.append("  align-items: ").append(toAlignItems(layout.getCrossAxisAlignment())).append(";\n");
+        if (layout.isWrap()) css.append("  flex-wrap: wrap;\n");
+    }
+
+    private void writePadding(EdgeInsets padding, StringBuilder css) {
+        if (padding == null) return;
+        Double top = padding.top();
+        Double right = padding.right();
+        Double bottom = padding.bottom();
+        Double left = padding.left();
+        if (top == null && right == null && bottom == null && left == null) return;
+
+        css.append("  padding: ")
+                .append(round(orZero(top))).append("px ")
+                .append(round(orZero(right))).append("px ")
+                .append(round(orZero(bottom))).append("px ")
+                .append(round(orZero(left))).append("px;\n");
+    }
+
+    private void writeCommonProperties(DesignNode node, DesignNode parent, StringBuilder css,
+                                       Map<String, String> imageUrlByNodeId) {
+        writeSizing(node, parent, css);
+        StyleSpec style = styleOf(node);
 
         String imageUrl = imageUrlByNodeId.get(node.getId());
         if (imageUrl != null && !imageUrl.isBlank()) {
-            sb.append("  background-image: url(\"").append(escapeCssUrl(imageUrl)).append("\");\n");
-            sb.append("  background-size: cover;\n");
-            sb.append("  background-position: center;\n");
-            sb.append("  background-repeat: no-repeat;\n");
-        } else if (node.getBackgroundColor() != null) {
+            css.append("  background-image: url(\"").append(escapeCssUrl(imageUrl)).append("\");\n");
+            css.append("  background-size: cover;\n");
+            css.append("  background-position: center;\n");
+            css.append("  background-repeat: no-repeat;\n");
+        } else if (style.getBackgroundColor() != null) {
             if ("TEXT".equals(node.getType())) {
-                sb.append("  color: ").append(node.getBackgroundColor()).append(";\n");
+                css.append("  color: ").append(style.getBackgroundColor()).append(";\n");
             } else {
-                sb.append("  background-color: ").append(node.getBackgroundColor()).append(";\n");
+                css.append("  background-color: ").append(style.getBackgroundColor()).append(";\n");
             }
         }
-        if (node.getOpacity() != null && node.getOpacity() < 1.0) sb.append("  opacity: ").append(node.getOpacity()).append(";\n");
-        if (node.getCornerRadius() != null && node.getCornerRadius() > 0) sb.append("  border-radius: ").append(round(node.getCornerRadius())).append("px;\n");
-        if (node.getBorderColor() != null && node.getBorderWidth() != null) {
-            sb.append("  border: ").append(round(node.getBorderWidth())).append("px solid ").append(node.getBorderColor()).append(";\n");
+        if (style.getOpacity() != null && style.getOpacity() < 1.0) {
+            css.append("  opacity: ").append(style.getOpacity()).append(";\n");
+        }
+        if (style.getCornerRadius() != null && style.getCornerRadius() > 0) {
+            css.append("  border-radius: ").append(round(style.getCornerRadius())).append("px;\n");
+        }
+        if (style.getBorderColor() != null && style.getBorderWidth() != null) {
+            css.append("  border: ").append(round(style.getBorderWidth())).append("px solid ")
+                    .append(style.getBorderColor()).append(";\n");
         }
 
         if ("TEXT".equals(node.getType())) {
-            sb.append("  white-space: pre-wrap;\n");
-            if (node.getFontFamily() != null) sb.append("  font-family: '").append(node.getFontFamily()).append("', sans-serif;\n");
-            if (node.getFontSize() != null) sb.append("  font-size: ").append(round(node.getFontSize())).append("px;\n");
-            if (node.getFontWeight() != null) sb.append("  font-weight: ").append(node.getFontWeight().intValue()).append(";\n");
-            if (node.getLineHeight() != null) sb.append("  line-height: ").append(round(node.getLineHeight())).append("px;\n");
-            if (node.getLetterSpacing() != null) sb.append("  letter-spacing: ").append(round(node.getLetterSpacing())).append("px;\n");
+            css.append("  white-space: pre-wrap;\n");
+            if (style.getFontFamily() != null) {
+                css.append("  font-family: '").append(escapeCssString(style.getFontFamily()))
+                        .append("', sans-serif;\n");
+            }
+            if (style.getFontSize() != null) css.append("  font-size: ").append(round(style.getFontSize())).append("px;\n");
+            if (style.getFontWeight() != null) css.append("  font-weight: ").append(style.getFontWeight().intValue()).append(";\n");
+            if (style.getLineHeight() != null) css.append("  line-height: ").append(round(style.getLineHeight())).append("px;\n");
+            if (style.getLetterSpacing() != null) css.append("  letter-spacing: ").append(round(style.getLetterSpacing())).append("px;\n");
         }
     }
 
-    private double safe(Double d) { return d != null ? d : 0; }
-    private double round(double d) { return Math.round(d * 100.0) / 100.0; }
+    private void writeSizing(DesignNode node, DesignNode parent, StringBuilder css) {
+        SizingSpec sizing = sizingOf(node);
+        boolean inFlex = isAutoFlex(parent) && layoutOf(node).getPositioning() != Positioning.ABSOLUTE;
+
+        writeDimension("width", sizing.getHorizontal(), sizing.getWidth(), css);
+        writeDimension("height", sizing.getVertical(), sizing.getHeight(), css);
+        writeOptionalDimension("min-width", sizing.getMinWidth(), css);
+        writeOptionalDimension("max-width", sizing.getMaxWidth(), css);
+        writeOptionalDimension("min-height", sizing.getMinHeight(), css);
+        writeOptionalDimension("max-height", sizing.getMaxHeight(), css);
+
+        if (inFlex) {
+            Direction parentDirection = layoutOf(parent).getDirection();
+            boolean fillsMainAxis = parentDirection == Direction.ROW
+                    ? sizing.getHorizontal() == SizingMode.FILL
+                    : sizing.getVertical() == SizingMode.FILL;
+            if (fillsMainAxis) css.append("  flex: 1 1 0;\n");
+
+            boolean stretchesCrossAxis = parentDirection == Direction.ROW
+                    ? sizing.getVertical() == SizingMode.STRETCH
+                    : sizing.getHorizontal() == SizingMode.STRETCH;
+            if (stretchesCrossAxis) css.append("  align-self: stretch;\n");
+        }
+    }
+
+    private void writeDimension(String property, SizingMode mode, Double fixedValue, StringBuilder css) {
+        if (mode == SizingMode.HUG) {
+            css.append("  ").append(property).append(": fit-content;\n");
+        } else if (mode == SizingMode.FILL || mode == SizingMode.STRETCH) {
+            css.append("  ").append(property).append(": 100%;\n");
+        } else if (fixedValue != null) {
+            css.append("  ").append(property).append(": ").append(round(fixedValue)).append("px;\n");
+        }
+    }
+
+    private void writeOptionalDimension(String property, Double value, StringBuilder css) {
+        if (value != null) css.append("  ").append(property).append(": ").append(round(value)).append("px;\n");
+    }
+
+    private void appendBaseStyles(StringBuilder css) {
+        css.append("* { box-sizing: border-box; margin: 0; padding: 0; }\n\n");
+        css.append("html, body { min-height: 100%; }\n");
+        css.append("body {\n  font-family: Arial, sans-serif;\n  background: #1e1e1e;\n  overflow-x: hidden;\n}\n\n");
+        css.append(".figma-page {\n");
+        css.append("  width: 100vw;\n");
+        css.append("  height: calc(var(--figma-height) * 1px * (100vw / (var(--figma-width) * 1px)));\n");
+        css.append("  margin: 0 auto;\n  background: #ffffff;\n  overflow: hidden;\n}\n\n");
+        css.append(".figma-canvas {\n");
+        css.append("  position: relative;\n");
+        css.append("  width: calc(var(--figma-width) * 1px);\n");
+        css.append("  height: calc(var(--figma-height) * 1px);\n");
+        css.append("  transform: scale(calc(100vw / (var(--figma-width) * 1px)));\n");
+        css.append("  transform-origin: top left;\n}\n\n");
+        css.append(".figma-node { overflow: hidden; }\n\n");
+    }
+
+    private boolean isAutoFlex(DesignNode node) {
+        return node != null && layoutOf(node).getType() == LayoutType.AUTO_FLEX;
+    }
+
+    private LayoutSpec layoutOf(DesignNode node) {
+        return node != null && node.getLayout() != null ? node.getLayout() : LayoutSpec.builder().build();
+    }
+
+    private SizingSpec sizingOf(DesignNode node) {
+        return node != null && node.getSizing() != null ? node.getSizing() : SizingSpec.builder().build();
+    }
+
+    private StyleSpec styleOf(DesignNode node) {
+        return node != null && node.getStyle() != null ? node.getStyle() : StyleSpec.builder().build();
+    }
+
+    private Bounds boundsOf(DesignNode node) {
+        return node != null && node.getBounds() != null ? node.getBounds() : Bounds.empty();
+    }
+
+    private List<DesignNode> childrenOf(DesignNode node) {
+        return node != null && node.getChildren() != null ? node.getChildren() : List.of();
+    }
+
+    private String toJustifyContent(Alignment alignment) {
+        return switch (alignment == null ? Alignment.START : alignment) {
+            case CENTER -> "center";
+            case END -> "flex-end";
+            case SPACE_BETWEEN -> "space-between";
+            case SPACE_AROUND -> "space-around";
+            default -> "flex-start";
+        };
+    }
+
+    private String toAlignItems(Alignment alignment) {
+        return switch (alignment == null ? Alignment.START : alignment) {
+            case CENTER -> "center";
+            case END -> "flex-end";
+            case BASELINE -> "baseline";
+            case STRETCH -> "stretch";
+            default -> "flex-start";
+        };
+    }
+
+    private double orZero(Double value) {
+        return value != null ? value : 0;
+    }
+
+    private double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
 
     private String toClassName(String name) {
         if (name == null || name.isBlank()) return "node";
@@ -150,7 +296,11 @@ public class CssGeneratorService {
         return slug.isBlank() ? "node" : slug;
     }
 
-    private String escapeCssUrl(String url) {
-        return url.replace("\\", "\\\\").replace("\"", "\\\"");
+    private String escapeCssUrl(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String escapeCssString(String value) {
+        return value.replace("\\", "\\\\").replace("'", "\\'");
     }
 }

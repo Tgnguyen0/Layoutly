@@ -1,0 +1,15 @@
+{
+  "name": "Layoutly Bridge",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": [
+      "http://localhost:8080",
+      "http://localhost:5173"
+    ]
+  }
+}

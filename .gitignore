@@ -1,5 +1,8 @@
 # Maven
 layoutly-be/target/
+layoutly-be/.layoutly-cache/
+layoutly-be/layoutly-data/
+layoutly-data/
 
 # IDE
 .idea/
@@ -9,6 +12,8 @@ layoutly-be/target/
 # Node / Frontend
 layoutly-fe/node_modules/
 layoutly-fe/dist/
+layoutly-figma-bridge/node_modules/
+layoutly-figma-bridge/dist/
 
 # OS
 .DS_Store

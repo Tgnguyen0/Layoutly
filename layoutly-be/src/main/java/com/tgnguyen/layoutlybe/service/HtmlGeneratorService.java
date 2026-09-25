@@ -1,6 +1,8 @@
 package com.tgnguyen.layoutlybe.service;
 
 import com.tgnguyen.layoutlybe.model.UINode;
+import com.tgnguyen.layoutlybe.model.ir.DesignNode;
+import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -10,6 +12,22 @@ import java.util.Map;
 
 @Service
 public class HtmlGeneratorService {
+    public String generate(DesignNode root) {
+        return generate(DesignNodeMapper.toLegacy(root));
+    }
+
+    public Map<String, String> generateAuto(DesignNode root) {
+        return generateAuto(DesignNodeMapper.toLegacy(root));
+    }
+
+    public Map<String, String> generateByType(DesignNode root, String targetType) {
+        return generateByType(DesignNodeMapper.toLegacy(root), targetType);
+    }
+
+    public String generateForNode(DesignNode node) {
+        return generateSingleNodeDocument(DesignNodeMapper.toLegacy(node));
+    }
+
     // Sinh HTML cau truc (chua co CSS) tu cay UINode.
     // Muc tieu tuan 7: chi quan tam cau truc long nhau dung, chua quan tam style.
     public String generate(UINode root) {

@@ -4,148 +4,295 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tgnguyen.layoutlybe.model.UINode;
+import com.tgnguyen.layoutlybe.model.ir.Alignment;
+import com.tgnguyen.layoutlybe.model.ir.AssetSpec;
+import com.tgnguyen.layoutlybe.model.ir.Bounds;
+import com.tgnguyen.layoutlybe.model.ir.ConstraintSpec;
+import com.tgnguyen.layoutlybe.model.ir.DesignNode;
+import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
+import com.tgnguyen.layoutlybe.model.ir.Direction;
+import com.tgnguyen.layoutlybe.model.ir.EdgeInsets;
+import com.tgnguyen.layoutlybe.model.ir.LayoutSpec;
+import com.tgnguyen.layoutlybe.model.ir.LayoutType;
+import com.tgnguyen.layoutlybe.model.ir.Positioning;
+import com.tgnguyen.layoutlybe.model.ir.SizingMode;
+import com.tgnguyen.layoutlybe.model.ir.SizingSpec;
+import com.tgnguyen.layoutlybe.model.ir.StyleSpec;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class FigmaParserService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Nhan chuoi JSON tho tu Figma (response cua /files/{fileKey}),
-    // duyet vao field "document" va dung lai thanh cay UINode.
+    /**
+     * Legacy entry point kept for existing clients of /tree and older generators.
+     */
     public UINode parseDocumentTree(String rawFigmaJson) throws JsonProcessingException {
+        return DesignNodeMapper.toLegacy(parseDesignTree(rawFigmaJson));
+    }
+
+    /**
+     * Parses the Figma document into Layoutly's framework-neutral intermediate representation.
+     */
+    public DesignNode parseDesignTree(String rawFigmaJson) throws JsonProcessingException {
         JsonNode rootNode = objectMapper.readTree(rawFigmaJson);
         JsonNode documentNode = rootNode.get("document");
-
-        if (documentNode == null) {
+        if (documentNode == null || documentNode.isNull()) {
             throw new IllegalArgumentException(
                     "JSON khong co field 'document' - phai la response tu endpoint /files/{fileKey}");
         }
-
-        return buildNode(documentNode);
+        return buildNode(documentNode, Direction.NONE);
     }
 
-    private UINode buildNode(JsonNode node) {
-        UINode uiNode = new UINode();
-        uiNode.setId(textOf(node, "id"));
-        uiNode.setName(textOf(node, "name"));
-        uiNode.setType(textOf(node, "type"));
-        uiNode.setCharacters(textOf(node, "characters"));
-        uiNode.setExportAsImage(shouldExportAsImage(node));
-
-        // Vi tri + kich thuoc
-        JsonNode box = node.get("absoluteBoundingBox");
-        if (box != null) {
-            uiNode.setX(doubleOf(box, "x"));
-            uiNode.setY(doubleOf(box, "y"));
-            uiNode.setWidth(doubleOf(box, "width"));
-            uiNode.setHeight(doubleOf(box, "height"));
-        }
-
-        // Mau nen + vien
-        uiNode.setBackgroundColor(extractColor(node.get("fills")));
-        uiNode.setBorderColor(extractColor(node.get("strokes")));
-        uiNode.setBorderWidth(doubleOf(node, "strokeWeight"));
-
-        // Do trong, bo goc
-        uiNode.setOpacity(doubleOf(node, "opacity"));
-        uiNode.setCornerRadius(doubleOf(node, "cornerRadius"));
-
-        // Khoang cach (Auto Layout) - chi co gia tri neu Frame co bat Auto Layout
-        uiNode.setPaddingTop(doubleOf(node, "paddingTop"));
-        uiNode.setPaddingRight(doubleOf(node, "paddingRight"));
-        uiNode.setPaddingBottom(doubleOf(node, "paddingBottom"));
-        uiNode.setPaddingLeft(doubleOf(node, "paddingLeft"));
-        uiNode.setItemSpacing(doubleOf(node, "itemSpacing"));
-
-        // Font chu - field "style" chi ton tai o node type TEXT
-        JsonNode style = node.get("style");
-        if (style != null) {
-            uiNode.setFontFamily(textOf(style, "fontFamily"));
-            uiNode.setFontSize(doubleOf(style, "fontSize"));
-            uiNode.setFontWeight(doubleOf(style, "fontWeight"));
-            uiNode.setLineHeight(doubleOf(style, "lineHeightPx"));
-            uiNode.setLetterSpacing(doubleOf(style, "letterSpacing"));
-        }
-
+    private DesignNode buildNode(JsonNode node, Direction parentDirection) {
+        LayoutSpec layout = parseLayout(node);
+        Bounds bounds = parseBounds(node);
+        List<DesignNode> children = new ArrayList<>();
         JsonNode childrenNode = node.get("children");
         if (childrenNode != null && childrenNode.isArray()) {
             for (JsonNode child : childrenNode) {
-                uiNode.getChildren().add(buildNode(child));
+                children.add(buildNode(child, layout.getDirection()));
             }
         }
-        return uiNode;
+
+        return DesignNode.builder()
+                .id(textOf(node, "id"))
+                .name(textOf(node, "name"))
+                .type(textOf(node, "type"))
+                .text(textOf(node, "characters"))
+                .bounds(bounds)
+                .layout(layout)
+                .sizing(parseSizing(node, bounds, parentDirection))
+                .style(parseStyle(node))
+                .asset(parseAsset(node))
+                .children(children)
+                .build();
     }
 
-    private String textOf(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value != null ? value.asText() : null;
+    private LayoutSpec parseLayout(JsonNode node) {
+        String layoutMode = textOf(node, "layoutMode");
+        Direction direction = switch (valueOrEmpty(layoutMode)) {
+            case "HORIZONTAL" -> Direction.ROW;
+            case "VERTICAL" -> Direction.COLUMN;
+            default -> Direction.NONE;
+        };
+
+        LayoutType layoutType;
+        if (direction != Direction.NONE) {
+            layoutType = LayoutType.AUTO_FLEX;
+        } else if ("GRID".equals(layoutMode)) {
+            layoutType = LayoutType.AUTO_GRID;
+        } else if (hasChildren(node) && isRenderableContainer(textOf(node, "type"))) {
+            layoutType = LayoutType.ABSOLUTE;
+        } else {
+            layoutType = LayoutType.NONE;
+        }
+
+        JsonNode constraints = node.get("constraints");
+        return LayoutSpec.builder()
+                .type(layoutType)
+                .direction(direction)
+                .gap(doubleOf(node, "itemSpacing"))
+                .padding(new EdgeInsets(
+                        doubleOf(node, "paddingTop"),
+                        doubleOf(node, "paddingRight"),
+                        doubleOf(node, "paddingBottom"),
+                        doubleOf(node, "paddingLeft")))
+                .mainAxisAlignment(parseAlignment(textOf(node, "primaryAxisAlignItems")))
+                .crossAxisAlignment(parseAlignment(textOf(node, "counterAxisAlignItems")))
+                .wrap("WRAP".equals(textOf(node, "layoutWrap")))
+                .positioning(parsePositioning(textOf(node, "layoutPositioning")))
+                .constraints(new ConstraintSpec(
+                        textOf(constraints, "horizontal"),
+                        textOf(constraints, "vertical")))
+                .build();
     }
 
-    private Double doubleOf(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return (value != null && !value.isNull()) ? value.asDouble() : null;
+    private SizingSpec parseSizing(JsonNode node, Bounds bounds, Direction parentDirection) {
+        SizingMode horizontal = parseSizingMode(textOf(node, "layoutSizingHorizontal"));
+        SizingMode vertical = parseSizingMode(textOf(node, "layoutSizingVertical"));
+
+        Direction ownDirection = parseDirection(textOf(node, "layoutMode"));
+        String primaryMode = textOf(node, "primaryAxisSizingMode");
+        String counterMode = textOf(node, "counterAxisSizingMode");
+        if (ownDirection == Direction.ROW) {
+            horizontal = fallbackSizing(horizontal, primaryMode);
+            vertical = fallbackSizing(vertical, counterMode);
+        } else if (ownDirection == Direction.COLUMN) {
+            vertical = fallbackSizing(vertical, primaryMode);
+            horizontal = fallbackSizing(horizontal, counterMode);
+        }
+
+        if (doubleOf(node, "layoutGrow") != null && doubleOf(node, "layoutGrow") > 0) {
+            if (parentDirection == Direction.ROW) horizontal = SizingMode.FILL;
+            if (parentDirection == Direction.COLUMN) vertical = SizingMode.FILL;
+        }
+        if ("STRETCH".equals(textOf(node, "layoutAlign"))) {
+            if (parentDirection == Direction.ROW) vertical = SizingMode.STRETCH;
+            if (parentDirection == Direction.COLUMN) horizontal = SizingMode.STRETCH;
+        }
+
+        if (horizontal == SizingMode.UNKNOWN && bounds.width() != null) horizontal = SizingMode.FIXED;
+        if (vertical == SizingMode.UNKNOWN && bounds.height() != null) vertical = SizingMode.FIXED;
+
+        return SizingSpec.builder()
+                .horizontal(horizontal)
+                .vertical(vertical)
+                .width(bounds.width())
+                .height(bounds.height())
+                .minWidth(doubleOf(node, "minWidth"))
+                .maxWidth(doubleOf(node, "maxWidth"))
+                .minHeight(doubleOf(node, "minHeight"))
+                .maxHeight(doubleOf(node, "maxHeight"))
+                .build();
     }
 
-    private boolean shouldExportAsImage(JsonNode node) {
+    private StyleSpec parseStyle(JsonNode node) {
+        JsonNode textStyle = node.get("style");
+        return StyleSpec.builder()
+                .backgroundColor(extractColor(node.get("fills")))
+                .borderColor(extractColor(node.get("strokes")))
+                .borderWidth(doubleOf(node, "strokeWeight"))
+                .opacity(doubleOf(node, "opacity"))
+                .cornerRadius(doubleOf(node, "cornerRadius"))
+                .fontFamily(textOf(textStyle, "fontFamily"))
+                .fontSize(doubleOf(textStyle, "fontSize"))
+                .fontWeight(doubleOf(textStyle, "fontWeight"))
+                .lineHeight(doubleOf(textStyle, "lineHeightPx"))
+                .letterSpacing(doubleOf(textStyle, "letterSpacing"))
+                .build();
+    }
+
+    private AssetSpec parseAsset(JsonNode node) {
         String type = textOf(node, "type");
-        if ("VECTOR".equals(type)
+        if (isVectorType(type)) return new AssetSpec(true, "VECTOR");
+
+        JsonNode fills = node.get("fills");
+        if (fills != null && fills.isArray()) {
+            for (JsonNode paint : fills) {
+                if (isVisible(paint) && "IMAGE".equals(textOf(paint, "type"))) {
+                    return new AssetSpec(true, "IMAGE");
+                }
+            }
+        }
+        return AssetSpec.none();
+    }
+
+    private Bounds parseBounds(JsonNode node) {
+        JsonNode box = node.get("absoluteBoundingBox");
+        if (box == null || box.isNull()) return Bounds.empty();
+        return new Bounds(
+                doubleOf(box, "x"),
+                doubleOf(box, "y"),
+                doubleOf(box, "width"),
+                doubleOf(box, "height"));
+    }
+
+    private Alignment parseAlignment(String value) {
+        return switch (valueOrEmpty(value)) {
+            case "MIN" -> Alignment.START;
+            case "CENTER" -> Alignment.CENTER;
+            case "MAX" -> Alignment.END;
+            case "SPACE_BETWEEN" -> Alignment.SPACE_BETWEEN;
+            case "SPACE_AROUND" -> Alignment.SPACE_AROUND;
+            case "BASELINE" -> Alignment.BASELINE;
+            case "STRETCH" -> Alignment.STRETCH;
+            default -> Alignment.START;
+        };
+    }
+
+    private Direction parseDirection(String value) {
+        return switch (valueOrEmpty(value)) {
+            case "HORIZONTAL" -> Direction.ROW;
+            case "VERTICAL" -> Direction.COLUMN;
+            default -> Direction.NONE;
+        };
+    }
+
+    private Positioning parsePositioning(String value) {
+        if (value == null || value.isBlank()) return Positioning.AUTO;
+        return "ABSOLUTE".equals(value) ? Positioning.ABSOLUTE : Positioning.AUTO;
+    }
+
+    private SizingMode parseSizingMode(String value) {
+        return switch (valueOrEmpty(value)) {
+            case "FIXED" -> SizingMode.FIXED;
+            case "HUG" -> SizingMode.HUG;
+            case "FILL" -> SizingMode.FILL;
+            default -> SizingMode.UNKNOWN;
+        };
+    }
+
+    private SizingMode fallbackSizing(SizingMode current, String legacyMode) {
+        if (current != SizingMode.UNKNOWN) return current;
+        return switch (valueOrEmpty(legacyMode)) {
+            case "FIXED" -> SizingMode.FIXED;
+            case "AUTO" -> SizingMode.HUG;
+            default -> SizingMode.UNKNOWN;
+        };
+    }
+
+    private boolean hasChildren(JsonNode node) {
+        JsonNode children = node.get("children");
+        return children != null && children.isArray() && !children.isEmpty();
+    }
+
+    private boolean isRenderableContainer(String type) {
+        return !"DOCUMENT".equals(type) && !"CANVAS".equals(type);
+    }
+
+    private boolean isVectorType(String type) {
+        return "VECTOR".equals(type)
                 || "BOOLEAN_OPERATION".equals(type)
                 || "STAR".equals(type)
                 || "LINE".equals(type)
-                || "REGULAR_POLYGON".equals(type)) {
-            return true;
-        }
-
-        JsonNode fills = node.get("fills");
-        if (fills == null || !fills.isArray()) return false;
-
-        for (JsonNode paint : fills) {
-            String paintType = textOf(paint, "type");
-            JsonNode visibleNode = paint.get("visible");
-            boolean visible = visibleNode == null || visibleNode.asBoolean(true);
-            if (visible && "IMAGE".equals(paintType)) {
-                return true;
-            }
-        }
-        return false;
+                || "REGULAR_POLYGON".equals(type)
+                || "POLYGON".equals(type);
     }
 
-    // Lay mau SOLID dau tien, con hien thi (visible != false), tra ve dang rgba() dung cho CSS
-    private String extractColor(JsonNode fillsOrStrokes) {
-        if (fillsOrStrokes == null || !fillsOrStrokes.isArray()) return null;
+    private boolean isVisible(JsonNode paint) {
+        JsonNode visible = paint.get("visible");
+        return visible == null || visible.asBoolean(true);
+    }
 
-        for (JsonNode paint : fillsOrStrokes) {
-            String paintType = textOf(paint, "type");
-            JsonNode visibleNode = paint.get("visible");
-            boolean visible = visibleNode == null || visibleNode.asBoolean(true);
+    private String textOf(JsonNode node, String field) {
+        if (node == null || node.isNull()) return null;
+        JsonNode value = node.get(field);
+        return value != null && !value.isNull() ? value.asText() : null;
+    }
 
-            if ("SOLID".equals(paintType) && visible) {
-                JsonNode color = paint.get("color");
-                if (color == null) continue;
+    private Double doubleOf(JsonNode node, String field) {
+        if (node == null || node.isNull()) return null;
+        JsonNode value = node.get(field);
+        return value != null && !value.isNull() && value.isNumber() ? value.asDouble() : null;
+    }
 
-                JsonNode rNode = color.get("r");
-                JsonNode gNode = color.get("g");
-                JsonNode bNode = color.get("b");
-                if (rNode == null || gNode == null || bNode == null) continue;
+    private String valueOrEmpty(String value) {
+        return value == null ? "" : value;
+    }
 
-                double r = rNode.asDouble();
-                double g = gNode.asDouble();
-                double b = bNode.asDouble();
-                // Do mo co the nam o paint.opacity hoac color.a, uu tien paint.opacity neu co
-                double a = 1.0;
-                if (paint.has("opacity") && !paint.get("opacity").isNull()) {
-                    a = paint.get("opacity").asDouble();
-                } else if (color.has("a") && !color.get("a").isNull()) {
-                    a = color.get("a").asDouble();
-                }
+    private String extractColor(JsonNode paints) {
+        if (paints == null || !paints.isArray()) return null;
+        for (JsonNode paint : paints) {
+            if (!"SOLID".equals(textOf(paint, "type")) || !isVisible(paint)) continue;
+            JsonNode color = paint.get("color");
+            if (color == null || !color.has("r") || !color.has("g") || !color.has("b")) continue;
 
-                int ri = (int) Math.round(r * 255);
-                int gi = (int) Math.round(g * 255);
-                int bi = (int) Math.round(b * 255);
-
-                return String.format("rgba(%d, %d, %d, %.2f)", ri, gi, bi, a);
-            }
+            int red = toColorChannel(color.get("r").asDouble());
+            int green = toColorChannel(color.get("g").asDouble());
+            int blue = toColorChannel(color.get("b").asDouble());
+            double alpha = paint.hasNonNull("opacity")
+                    ? paint.get("opacity").asDouble()
+                    : color.path("a").asDouble(1.0);
+            return String.format(java.util.Locale.ROOT, "rgba(%d, %d, %d, %.2f)", red, green, blue, alpha);
         }
         return null;
+    }
+
+    private int toColorChannel(double value) {
+        return (int) Math.round(Math.max(0, Math.min(1, value)) * 255);
     }
 }

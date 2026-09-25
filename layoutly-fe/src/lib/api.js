@@ -20,8 +20,15 @@ async function request(path, { token, method = 'GET', body } = {}) {
   }
 
   if (!res.ok) {
-    const message = parsed?.error || text || `HTTP ${res.status}`
-    throw new Error(message)
+    const message = parsed?.message || parsed?.error || text || `HTTP ${res.status}`
+    const error = new Error(message)
+    error.code = parsed?.code
+    error.retryAfterSeconds = parsed?.retryAfterSeconds
+    error.retryAt = parsed?.retryAt
+    error.planTier = parsed?.planTier
+    error.rateLimitType = parsed?.rateLimitType
+    error.upgradeUrl = parsed?.upgradeUrl
+    throw error
   }
 
   return { raw: text, json: parsed, status: res.status }
@@ -40,6 +47,7 @@ export const figmaApi = {
   styles: (token, fileKey) => request(`/figma/file/${fileKey}/styles`, { token }),
   tree: (token, fileKey) => request(`/figma/file/${fileKey}/tree`, { token }),
   html: (token, fileKey) => request(`/figma/file/${fileKey}/html`, { token }),
+  react: (token, fileKey) => request(`/figma/file/${fileKey}/react`, { token }),
   preview: (token, fileKey) => request(`/figma/file/${fileKey}/preview`, { token }),
 }
 
@@ -85,14 +93,77 @@ export async function downloadZipExport(token, fileKey, type = 'AUTO') {
 
   if (!res.ok) {
     const text = await res.text()
+    let message = text || `HTTP ${res.status}`
     try {
-      const parsed = JSON.parse(text)
-      throw new Error(parsed?.error || text || `HTTP ${res.status}`)
+      message = JSON.parse(text)?.error || message
     } catch {
-      throw new Error(text || `HTTP ${res.status}`)
+      // Keep the plain-text backend error.
     }
+    throw new Error(message)
   }
 
   const blob = await res.blob()
   triggerDownload(blob, `${fileKey}-export.zip`)
+}
+
+export const snapshotApi = {
+  bridgeStatus: () => request('/bridge/status'),
+  importFigma: (token, fileKey) => request('/figma/import', {
+    token,
+    method: 'POST',
+    body: { fileKey },
+  }),
+  refresh: (token, snapshotId) => request(`/snapshots/${snapshotId}/refresh`, {
+    token,
+    method: 'POST',
+  }),
+  get: (snapshotId) => request(`/snapshots/${snapshotId}`),
+  tree: (snapshotId) => request(`/snapshots/${snapshotId}/tree`),
+  structure: (snapshotId) => request(`/snapshots/${snapshotId}/structure`),
+  html: (snapshotId) => request(`/snapshots/${snapshotId}/html`),
+  css: (snapshotId) => request(`/snapshots/${snapshotId}/css`),
+  react: (snapshotId) => request(`/snapshots/${snapshotId}/react`),
+  saveFixture: (snapshotId, caseName) => request(`/snapshots/${snapshotId}/fixture`, {
+    method: 'POST',
+    body: { caseName },
+  }),
+}
+
+export async function downloadReactZipExport(token, fileKey) {
+  const headers = {}
+  if (token) headers['X-Figma-Token'] = token
+
+  const res = await fetch(`${BASE}/figma/file/${fileKey}/export/react`, { headers })
+  if (!res.ok) {
+    const text = await res.text()
+    let message = text || `HTTP ${res.status}`
+    try {
+      message = JSON.parse(text)?.error || message
+    } catch {
+      // Keep the plain-text backend error.
+    }
+    throw new Error(message)
+  }
+
+  const blob = await res.blob()
+  triggerDownload(blob, `${fileKey}-react.zip`)
+}
+
+export async function downloadSnapshotExport(snapshotId, format, type = 'AUTO') {
+  const query = new URLSearchParams({ format, type })
+  const res = await fetch(`${BASE}/snapshots/${snapshotId}/export?${query}`)
+  if (!res.ok) {
+    const text = await res.text()
+    let message = text || `HTTP ${res.status}`
+    try {
+      const parsed = JSON.parse(text)
+      message = parsed?.message || parsed?.error || message
+    } catch {
+      // Keep the plain-text backend error.
+    }
+    throw new Error(message)
+  }
+
+  const blob = await res.blob()
+  triggerDownload(blob, `layoutly-${format.toLowerCase()}-export.zip`)
 }
