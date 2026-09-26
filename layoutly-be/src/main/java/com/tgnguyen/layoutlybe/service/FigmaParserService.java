@@ -4,20 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tgnguyen.layoutlybe.model.UINode;
-import com.tgnguyen.layoutlybe.model.ir.Alignment;
-import com.tgnguyen.layoutlybe.model.ir.AssetSpec;
-import com.tgnguyen.layoutlybe.model.ir.Bounds;
-import com.tgnguyen.layoutlybe.model.ir.ConstraintSpec;
-import com.tgnguyen.layoutlybe.model.ir.DesignNode;
-import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
-import com.tgnguyen.layoutlybe.model.ir.Direction;
-import com.tgnguyen.layoutlybe.model.ir.EdgeInsets;
-import com.tgnguyen.layoutlybe.model.ir.LayoutSpec;
-import com.tgnguyen.layoutlybe.model.ir.LayoutType;
-import com.tgnguyen.layoutlybe.model.ir.Positioning;
-import com.tgnguyen.layoutlybe.model.ir.SizingMode;
-import com.tgnguyen.layoutlybe.model.ir.SizingSpec;
-import com.tgnguyen.layoutlybe.model.ir.StyleSpec;
+import com.tgnguyen.layoutlybe.model.ir.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -68,6 +55,7 @@ public class FigmaParserService {
                 .sizing(parseSizing(node, bounds, parentDirection))
                 .style(parseStyle(node))
                 .asset(parseAsset(node))
+                .role(RoleClassifier.classify(node))   // <-- thêm dòng này
                 .children(children)
                 .build();
     }

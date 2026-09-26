@@ -21,6 +21,10 @@ import java.util.Map;
 @Service
 public class CssGeneratorService {
 
+    // Nguong de coi 1 node "khong set Constraints ro rang" la khoi full-bleed
+    // (anh nen, dai mau nen...) va tu dong cho co gian full-width thay vi ket px.
+    private static final double FULL_BLEED_RATIO_THRESHOLD = 0.95;
+
     public String generate(UINode root) {
         return generate(DesignNodeMapper.fromLegacy(root), Map.of());
     }
@@ -56,7 +60,7 @@ public class CssGeneratorService {
         css.append(".node-").append(toClassName(node.getId())).append(" {\n");
         css.append("  position: relative;\n");
         writeLayoutContainer(node, css);
-        writeCommonProperties(node, null, css, imageUrlByNodeId);
+        writeCommonProperties(node, null, css, imageUrlByNodeId, false);
         css.append("}\n\n");
 
         for (DesignNode child : childrenOf(node)) {
@@ -75,9 +79,9 @@ public class CssGeneratorService {
         }
 
         css.append(".node-").append(toClassName(node.getId())).append(" {\n");
-        writePosition(node, parent, css);
+        boolean sizeHandledByPosition = writePosition(node, parent, css);
         writeLayoutContainer(node, css);
-        writeCommonProperties(node, parent, css, imageUrlByNodeId);
+        writeCommonProperties(node, parent, css, imageUrlByNodeId, sizeHandledByPosition);
         css.append("}\n\n");
 
         for (DesignNode child : childrenOf(node)) {
@@ -85,28 +89,97 @@ public class CssGeneratorService {
         }
     }
 
-    private void writePosition(DesignNode node, DesignNode parent, StringBuilder css) {
+    /**
+     * @return true neu width/height cua node da duoc quyet dinh o day (writeSizing se bo qua,
+     *         khong ghi de lai bang gia tri px co dinh tu Figma).
+     */
+    private boolean writePosition(DesignNode node, DesignNode parent, StringBuilder css) {
         boolean parentIsFlex = isAutoFlex(parent);
         boolean forcedAbsolute = layoutOf(node).getPositioning() == Positioning.ABSOLUTE;
         if (parentIsFlex && !forcedAbsolute) {
             css.append("  position: relative;\n");
-            return;
+            return false;
         }
 
         Bounds bounds = boundsOf(node);
-        Bounds parentBounds = boundsOf(parent);
-        if (bounds.x() != null && bounds.y() != null && parentBounds.x() != null && parentBounds.y() != null) {
-            css.append("  position: absolute;\n");
-            css.append("  left: ").append(round(bounds.x() - parentBounds.x())).append("px;\n");
-            css.append("  top: ").append(round(bounds.y() - parentBounds.y())).append("px;\n");
-        } else if (bounds.x() != null && bounds.y() != null) {
-            css.append("  position: absolute;\n");
-            css.append("  left: calc(").append(round(bounds.x()))
-                    .append("px - (var(--figma-offset-x) * 1px));\n");
-            css.append("  top: calc(").append(round(bounds.y()))
-                    .append("px - (var(--figma-offset-y) * 1px));\n");
-        } else {
+        if (bounds.x() == null || bounds.y() == null) {
             css.append("  position: relative;\n");
+            return false;
+        }
+
+        Bounds parentBounds = boundsOf(parent);
+        if (parentBounds.x() == null || parentBounds.width() == null) {
+            // Cha that (CANVAS/DOCUMENT) khong co bounds - Figma khong cho set Constraints
+            // o tang nay. Day KHONG phai truong hop can "doan" gia tri cha: dung ban chat
+            // la 1 section cua trang dai, nen xuat document flow binh thuong (khong absolute)
+            // de trinh duyet tu xep chong theo dung thu tu HTML, chieu ngang fluid 100%.
+            css.append("  position: relative;\n");
+            css.append("  width: 100%;\n");
+            if (bounds.height() != null) {
+                css.append("  height: ").append(round(bounds.height())).append("px;\n");
+            }
+            return true;
+        }
+
+        css.append("  position: absolute;\n");
+        writeConstrainedAxis(true, node, bounds, parentBounds, css);
+        writeConstrainedAxis(false, node, bounds, parentBounds, css);
+        return true;
+    }
+
+    private void writeConstrainedAxis(boolean horizontal, DesignNode node, Bounds bounds,
+                                      Bounds parentBounds, StringBuilder css) {
+        double nodeStart = horizontal ? bounds.x() : bounds.y();
+        double nodeSize = (horizontal ? bounds.width() : bounds.height()) != null
+                ? (horizontal ? bounds.width() : bounds.height()) : 0;
+        double parentStart = horizontal ? parentBounds.x() : parentBounds.y();
+        double parentSize = horizontal ? parentBounds.width() : parentBounds.height();
+
+        String constraint = horizontal
+                ? layoutOf(node).getConstraints().horizontal()
+                : layoutOf(node).getConstraints().vertical();
+        String leading = horizontal ? "left" : "top";
+        String trailing = horizontal ? "right" : "bottom";
+        String sizeProp = horizontal ? "width" : "height";
+
+        double leadOffset = nodeStart - parentStart;
+        double trailOffset = (parentStart + parentSize) - (nodeStart + nodeSize);
+
+        switch (constraint == null ? "LEFT" : constraint) {
+            case "RIGHT", "BOTTOM" -> {
+                css.append("  ").append(trailing).append(": ").append(round(trailOffset)).append("px;\n");
+                css.append("  ").append(sizeProp).append(": ").append(round(nodeSize)).append("px;\n");
+            }
+            case "CENTER" -> {
+                double centerOffset = leadOffset + nodeSize / 2 - parentSize / 2;
+                css.append("  ").append(leading).append(": calc(50% + ").append(round(centerOffset))
+                        .append("px - ").append(round(nodeSize / 2)).append("px);\n");
+                css.append("  ").append(sizeProp).append(": ").append(round(nodeSize)).append("px;\n");
+            }
+            case "LEFT_RIGHT", "TOP_BOTTOM" -> {
+                css.append("  ").append(leading).append(": ").append(round(leadOffset)).append("px;\n");
+                css.append("  ").append(trailing).append(": ").append(round(trailOffset)).append("px;\n");
+                // Khong xuat width/height - de 2 canh tu keo gian
+            }
+            case "SCALE" -> {
+                css.append("  ").append(leading).append(": ").append(round(leadOffset / parentSize * 100)).append("%;\n");
+                css.append("  ").append(sizeProp).append(": ").append(round(nodeSize / parentSize * 100)).append("%;\n");
+            }
+            default -> { // LEFT / TOP - Figma khong bat buoc nguoi dung phai set constraint,
+                // nen day la truong hop pho bien nhat trong thuc te. Rieng truc ngang: neu
+                // node chiem gan het be rong cha (>= 95%), gan chac day la khoi full-bleed
+                // (anh nen, dai mau...) du Figma chua khai bao LEFT_RIGHT - cho fluid luon
+                // thay vi ket px, tranh phai bat nguoi dung vao Figma chinh tay tung node.
+                boolean looksFullBleed = horizontal && parentSize > 0
+                        && (nodeSize / parentSize) >= FULL_BLEED_RATIO_THRESHOLD;
+                if (looksFullBleed) {
+                    css.append("  ").append(leading).append(": ").append(round(leadOffset)).append("px;\n");
+                    css.append("  ").append(trailing).append(": ").append(round(trailOffset)).append("px;\n");
+                } else {
+                    css.append("  ").append(leading).append(": ").append(round(leadOffset)).append("px;\n");
+                    css.append("  ").append(sizeProp).append(": ").append(round(nodeSize)).append("px;\n");
+                }
+            }
         }
     }
 
@@ -141,8 +214,8 @@ public class CssGeneratorService {
     }
 
     private void writeCommonProperties(DesignNode node, DesignNode parent, StringBuilder css,
-                                       Map<String, String> imageUrlByNodeId) {
-        writeSizing(node, parent, css);
+                                       Map<String, String> imageUrlByNodeId, boolean sizeHandledByPosition) {
+        writeSizing(node, parent, css, sizeHandledByPosition);
         StyleSpec style = styleOf(node);
 
         String imageUrl = imageUrlByNodeId.get(node.getId());
@@ -182,12 +255,14 @@ public class CssGeneratorService {
         }
     }
 
-    private void writeSizing(DesignNode node, DesignNode parent, StringBuilder css) {
+    private void writeSizing(DesignNode node, DesignNode parent, StringBuilder css, boolean sizeHandledByPosition) {
         SizingSpec sizing = sizingOf(node);
         boolean inFlex = isAutoFlex(parent) && layoutOf(node).getPositioning() != Positioning.ABSOLUTE;
 
-        writeDimension("width", sizing.getHorizontal(), sizing.getWidth(), css);
-        writeDimension("height", sizing.getVertical(), sizing.getHeight(), css);
+        if (!sizeHandledByPosition) {
+            writeDimension("width", sizing.getHorizontal(), sizing.getWidth(), css);
+            writeDimension("height", sizing.getVertical(), sizing.getHeight(), css);
+        }
         writeOptionalDimension("min-width", sizing.getMinWidth(), css);
         writeOptionalDimension("max-width", sizing.getMaxWidth(), css);
         writeOptionalDimension("min-height", sizing.getMinHeight(), css);
@@ -225,17 +300,20 @@ public class CssGeneratorService {
         css.append("* { box-sizing: border-box; margin: 0; padding: 0; }\n\n");
         css.append("html, body { min-height: 100%; }\n");
         css.append("body {\n  font-family: Arial, sans-serif;\n  background: #1e1e1e;\n  overflow-x: hidden;\n}\n\n");
+        // .figma-page: khung ngoai, co gian theo man hinh (fluid width, kep tran boi kich
+        // thuoc thiet ke goc tu Figma). .figma-canvas: giu nguyen kich thuoc pixel-perfect
+        // goc va duoc mot doan script nho (HtmlGeneratorService.responsiveScript() cho HTML,
+        // hoac src/lib/responsiveScale.js cho ban xuat React) co/gian bang transform: scale()
+        // cho vua khung cha khi man hinh nho hon thiet ke (dien thoai/tablet).
         css.append(".figma-page {\n");
-        css.append("  width: 100vw;\n");
-        css.append("  height: calc(var(--figma-height) * 1px * (100vw / (var(--figma-width) * 1px)));\n");
+        css.append("  position: relative;\n");
+        css.append("  width: 100%;\n");
+        css.append("  max-width: calc(var(--figma-width) * 1px);\n");
         css.append("  margin: 0 auto;\n  background: #ffffff;\n  overflow: hidden;\n}\n\n");
         css.append(".figma-canvas {\n");
-        css.append("  position: relative;\n");
-        css.append("  width: calc(var(--figma-width) * 1px);\n");
-        css.append("  height: calc(var(--figma-height) * 1px);\n");
-        css.append("  transform: scale(calc(100vw / (var(--figma-width) * 1px)));\n");
-        css.append("  transform-origin: top left;\n}\n\n");
+        css.append("  position: relative;\n  width: 100%;\n  transform-origin: top left;\n}\n\n");
         css.append(".figma-node { overflow: hidden; }\n\n");
+        css.append("@media (max-width: 480px) {\n  .figma-node[data-figma-type=\"TEXT\"] { overflow-wrap: break-word; }\n}\n\n");
     }
 
     private boolean isAutoFlex(DesignNode node) {

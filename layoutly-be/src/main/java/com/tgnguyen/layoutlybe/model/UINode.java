@@ -1,5 +1,6 @@
 package com.tgnguyen.layoutlybe.model;
 
+import com.tgnguyen.layoutlybe.model.ir.NodeRole;
 import lombok.*;
 
 import java.util.ArrayList;
@@ -52,4 +53,6 @@ public class UINode {
     private Double paddingBottom;
     private Double paddingLeft;
     private Double itemSpacing;
+
+    private NodeRole role;   // <-- thêm dòng này
 }

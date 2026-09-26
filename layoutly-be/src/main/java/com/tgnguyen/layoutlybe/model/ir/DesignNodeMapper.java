@@ -24,6 +24,7 @@ public final class DesignNodeMapper {
                 .id(node.getId())
                 .name(node.getName())
                 .type(node.getType())
+                .role(node.getRole())
                 .characters(node.getText())
                 .children(children)
                 .exportAsImage(node.getAsset() != null && node.getAsset().exportAsImage())

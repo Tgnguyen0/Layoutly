@@ -3,6 +3,7 @@ package com.tgnguyen.layoutlybe.service;
 import com.tgnguyen.layoutlybe.model.UINode;
 import com.tgnguyen.layoutlybe.model.ir.DesignNode;
 import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
+import com.tgnguyen.layoutlybe.model.ir.NodeRole;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -12,6 +13,43 @@ import java.util.Map;
 
 @Service
 public class HtmlGeneratorService {
+
+    /**
+     * Script gon nhe, khong phu thuoc framework: co/gian toan bo ".figma-canvas"
+     * (giu nguyen ty le, khong vo bo cuc) bang transform: scale() de vua chieu
+     * rong cua ".figma-page" tren moi kich thuoc man hinh (dien thoai, tablet,
+     * desktop). Duoc dung chung cho ca ban xuat HTML tinh va du an React.
+     */
+    public static String responsiveScript() {
+        return "(function () {\n"
+                + "  function applyLayoutlyResponsiveScale() {\n"
+                + "    var pages = document.querySelectorAll('.figma-page');\n"
+                + "    for (var i = 0; i < pages.length; i++) {\n"
+                + "      var page = pages[i];\n"
+                + "      var canvas = page.querySelector('.figma-canvas');\n"
+                + "      if (!canvas) continue;\n"
+                + "      var designWidth = parseFloat(page.style.getPropertyValue('--figma-width'));\n"
+                + "      var designHeight = parseFloat(page.style.getPropertyValue('--figma-height'));\n"
+                + "      if (!designWidth) continue;\n"
+                + "      canvas.style.width = designWidth + 'px';\n"
+                + "      if (designHeight) canvas.style.minHeight = designHeight + 'px';\n"
+                + "      var available = page.clientWidth || window.innerWidth;\n"
+                + "      var scale = available > 0 ? Math.min(1, available / designWidth) : 1;\n"
+                + "      canvas.style.transform = 'scale(' + scale + ')';\n"
+                + "      page.style.height = designHeight ? (designHeight * scale) + 'px' : '';\n"
+                + "    }\n"
+                + "  }\n"
+                + "  window.addEventListener('resize', applyLayoutlyResponsiveScale);\n"
+                + "  window.addEventListener('orientationchange', applyLayoutlyResponsiveScale);\n"
+                + "  if (document.readyState === 'loading') {\n"
+                + "    document.addEventListener('DOMContentLoaded', applyLayoutlyResponsiveScale);\n"
+                + "  } else {\n"
+                + "    applyLayoutlyResponsiveScale();\n"
+                + "  }\n"
+                + "  window.__layoutlyApplyResponsiveScale = applyLayoutlyResponsiveScale;\n"
+                + "})();\n";
+    }
+
     public String generate(DesignNode root) {
         return generate(DesignNodeMapper.toLegacy(root));
     }
@@ -61,7 +99,9 @@ public class HtmlGeneratorService {
             renderNode(child, 2, sb);
         }
 
-        sb.append(" </section>\n</main>\n</body>\n</html>\n");
+        sb.append(" </section>\n</main>\n")
+                .append("<script>\n").append(responsiveScript()).append("</script>\n")
+                .append("</body>\n</html>\n");
         return sb.toString();
     }
 
@@ -175,7 +215,9 @@ public class HtmlGeneratorService {
 
         renderNode(node, 2, sb);
 
-        sb.append(" </section>\n</main>\n</body>\n</html>\n");
+        sb.append(" </section>\n</main>\n")
+                .append("<script>\n").append(responsiveScript()).append("</script>\n")
+                .append("</body>\n</html>\n");
         return sb.toString();
     }
 
@@ -187,7 +229,7 @@ public class HtmlGeneratorService {
 
     private void renderNode(UINode node, int depth, StringBuilder sb) {
         String indent = " ".repeat(depth);
-        String tag = tagFor(node.getType());
+        String tag = tagFor(node.getRole());
 
         // CANVAS (page) khong xuat ra the HTML, chi duyet tiep xuong children cua no
         if ("CANVAS".equals(node.getType())) {
@@ -220,10 +262,11 @@ public class HtmlGeneratorService {
     }
 
     // Anh xa loai node Figma sang the HTML phu hop
-    private String tagFor(String figmaType) {
-        if (figmaType == null) return "div";
-        return switch (figmaType) {
-            case "TEXT" -> "p";
+    private String tagFor(NodeRole role) {
+        if (role == null) return "div";
+        return switch (role) {
+            case BUTTON -> "button";
+            case TEXT -> "p";
             default -> "div"; // FRAME, GROUP, VECTOR, RECTANGLE, ELLIPSE, INSTANCE, COMPONENT...
         };
     }

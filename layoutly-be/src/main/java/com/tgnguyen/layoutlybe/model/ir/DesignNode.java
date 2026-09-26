@@ -25,4 +25,7 @@ public class DesignNode {
     AssetSpec asset = AssetSpec.none();
     @Singular
     List<DesignNode> children;
+
+    @Builder.Default
+    NodeRole role = NodeRole.CONTAINER;
 }
