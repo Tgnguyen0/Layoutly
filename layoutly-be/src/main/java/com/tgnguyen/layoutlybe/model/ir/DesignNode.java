@@ -28,4 +28,6 @@ public class DesignNode {
 
     @Builder.Default
     NodeRole role = NodeRole.CONTAINER;
+    @Builder.Default
+    String linkTargetId;
 }

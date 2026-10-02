@@ -55,4 +55,5 @@ public class UINode {
     private Double itemSpacing;
 
     private NodeRole role;   // <-- thêm dòng này
+    private String linkTargetId;
 }

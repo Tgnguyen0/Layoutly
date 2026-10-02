@@ -47,6 +47,7 @@ public final class DesignNodeMapper {
                 .paddingBottom(padding.bottom())
                 .paddingLeft(padding.left())
                 .itemSpacing(layout.getGap())
+                .linkTargetId(node.getLinkTargetId())
                 .build();
     }
 
@@ -87,6 +88,7 @@ public final class DesignNodeMapper {
                         .letterSpacing(node.getLetterSpacing())
                         .build())
                 .asset(new AssetSpec(node.isExportAsImage(), node.isExportAsImage() ? "RASTERIZED" : null))
+                .linkTargetId(node.getLinkTargetId())
                 .children(children)
                 .build();
     }

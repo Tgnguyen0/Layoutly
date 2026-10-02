@@ -308,11 +308,13 @@ public class CssGeneratorService {
         css.append(".figma-page {\n");
         css.append("  position: relative;\n");
         css.append("  width: 100%;\n");
-        css.append("  max-width: calc(var(--figma-width) * 1px);\n");
+         css.append("  max-width: calc(var(--figma-width) * 1px);\n");
+         //      css.append("  max-width: calc(var(--figma-width) * 1px);\n");
         css.append("  margin: 0 auto;\n  background: #ffffff;\n  overflow: hidden;\n}\n\n");
         css.append(".figma-canvas {\n");
         css.append("  position: relative;\n  width: 100%;\n  transform-origin: top left;\n}\n\n");
         css.append(".figma-node { overflow: hidden; }\n\n");
+        css.append(":where(a.figma-node) { display: block; text-decoration: none; color: inherit; }\n\n");
         css.append("@media (max-width: 480px) {\n  .figma-node[data-figma-type=\"TEXT\"] { overflow-wrap: break-word; }\n}\n\n");
     }
 

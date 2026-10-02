@@ -56,8 +56,30 @@ public class FigmaParserService {
                 .style(parseStyle(node))
                 .asset(parseAsset(node))
                 .role(RoleClassifier.classify(node))   // <-- thêm dòng này
+                .linkTargetId(parseLinkTarget(node))
                 .children(children)
                 .build();
+    }
+
+    private String parseLinkTarget(JsonNode node) {
+        JsonNode interactions = node.get("interactions");
+        if (interactions == null || !interactions.isArray()) return null;
+
+        for (JsonNode interaction : interactions) {
+            if (!"ON_CLICK".equals(textOf(interaction.get("trigger"), "type"))) continue;
+
+            JsonNode actions = interaction.get("actions");
+            if (actions == null || !actions.isArray()) continue;
+
+            for (JsonNode action : actions) {
+                if ("NODE".equals(textOf(action, "type"))
+                        && "NAVIGATE".equals(textOf(action, "navigation"))) {
+                    String destinationId = textOf(action, "destinationId");
+                    if (destinationId != null && !destinationId.isBlank()) return destinationId;
+                }
+            }
+        }
+        return null;
     }
 
     private LayoutSpec parseLayout(JsonNode node) {

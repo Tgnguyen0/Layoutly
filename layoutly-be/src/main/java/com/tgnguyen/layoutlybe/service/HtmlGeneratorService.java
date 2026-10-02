@@ -6,10 +6,7 @@ import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
 import com.tgnguyen.layoutlybe.model.ir.NodeRole;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class HtmlGeneratorService {
@@ -37,6 +34,11 @@ public class HtmlGeneratorService {
                 + "      var scale = available > 0 ? Math.min(1, available / designWidth) : 1;\n"
                 + "      canvas.style.transform = 'scale(' + scale + ')';\n"
                 + "      page.style.height = designHeight ? (designHeight * scale) + 'px' : '';\n"
+//                + "var available = page.clientWidth || window.innerWidth;\n"
+//                + "var scale = Math.min(available / designWidth, designHeight ? window.innerHeight / designHeight : Infinity);\n"
+//                + "canvas.style.transform = 'scale(' + scale + ')';\n"
+//                + "canvas.style.marginLeft = Math.max(0, (available - designWidth * scale) / 2) + 'px';\n"
+//                + "page.style.height = designHeight ? (designHeight * scale) + 'px' : '';\n"
                 + "    }\n"
                 + "  }\n"
                 + "  window.addEventListener('resize', applyLayoutlyResponsiveScale);\n"
@@ -96,7 +98,7 @@ public class HtmlGeneratorService {
                 .append(" <section class=\"figma-canvas\">\n");
 
         for (UINode child : root.getChildren()) {
-            renderNode(child, 2, sb);
+            renderNode(child, 2, sb, null);
         }
 
         sb.append(" </section>\n</main>\n")
@@ -110,6 +112,10 @@ public class HtmlGeneratorService {
         Map<String, Integer> usedNames = new LinkedHashMap<>();
         if (root == null || root.getChildren() == null) return result;
 
+        Map<String, String> fileByNodeId = new HashMap<>();
+        Map<String, UINode> rootByFile = new LinkedHashMap<>();
+
+        // Luot 1: dat ten file cho tung trang + danh chi muc node -> file
         for (UINode canvas : root.getChildren()) {
             if (!"CANVAS".equals(canvas.getType())) continue;
 
@@ -122,13 +128,23 @@ public class HtmlGeneratorService {
 
             if (topFrames.size() <= 1) {
                 // Chi co 1 (hoac khong co) Frame ngoai cung -> xem nhu 1 trang hoan chinh
-                result.put(uniqueFilename(canvas, usedNames), generateSingleNodeDocument(canvas));
+                String filename = uniqueFilename(canvas, usedNames);
+                rootByFile.put(filename, canvas);
+                indexNodes(canvas, filename, fileByNodeId);
             } else {
                 // Nhieu Frame doc lap tren cung 1 Page -> tach rieng tung thiet ke
                 for (UINode frame : topFrames) {
-                    result.put(uniqueFilename(frame, usedNames), generateSingleNodeDocument(frame));
+                    String filename = uniqueFilename(frame, usedNames);
+                    rootByFile.put(filename, frame);
+                    indexNodes(frame, filename, fileByNodeId);
                 }
             }
+        }
+
+        // Luot 2: sinh HTML, truyen kem ngu canh de buoc 4 tra link
+        for (Map.Entry<String, UINode> entry : rootByFile.entrySet()) {
+            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey());
+            result.put(entry.getKey(), generateSingleNodeDocument(entry.getValue(), ctx));
         }
         return result;
     }
@@ -149,10 +165,41 @@ public class HtmlGeneratorService {
      *         Ten file tu dong danh so lai (-2, -3...) neu trung ten sau khi sanitize.
      */
     public Map<String, String> generateByType(UINode root, String targetType) {
-        Map<String, String> result = new LinkedHashMap<>();
         Map<String, Integer> usedNames = new LinkedHashMap<>();
-        collectByType(root, targetType, result, usedNames);
+        Map<String, UINode> rootByFile = new LinkedHashMap<>();
+        Map<String, String> fileByNodeId = new HashMap<>();
+
+        // Luot 1: gom node can tach + danh chi muc node -> file
+        collectByType(root, targetType, rootByFile, usedNames, fileByNodeId);
+
+        // Luot 2: sinh HTML kem ngu canh de tra link
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<String, UINode> entry : rootByFile.entrySet()) {
+            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey());
+            result.put(entry.getKey(), generateSingleNodeDocument(entry.getValue(), ctx));
+        }
         return result;
+    }
+
+    private void collectByType(UINode node, String targetType,
+                               Map<String, UINode> rootByFile,
+                               Map<String, Integer> usedNames,
+                               Map<String, String> fileByNodeId) {
+        if (node == null) return;
+
+        if (targetType.equals(node.getType())) {
+            String filename = uniqueFilename(node, usedNames);
+            rootByFile.put(filename, node);
+            indexNodes(node, filename, fileByNodeId);
+            // DUNG DE QUY o day - giu nguyen y do cu: node con ben trong da nam tron trong file nay
+            return;
+        }
+
+        if (node.getChildren() != null) {
+            for (UINode child : node.getChildren()) {
+                collectByType(child, targetType, rootByFile, usedNames, fileByNodeId);
+            }
+        }
     }
 
     private void collectByType(UINode node, String targetType,
@@ -178,8 +225,12 @@ public class HtmlGeneratorService {
         }
     }
 
-    /** Sinh 1 file .html hoan chinh, lay dung 1 node lam goc (thay vi toan bo DOCUMENT). */
     private String generateSingleNodeDocument(UINode node) {
+        return generateSingleNodeDocument(node, null);
+    }
+
+    /** Sinh 1 file .html hoan chinh, lay dung 1 node lam goc (thay vi toan bo DOCUMENT). */
+    private String generateSingleNodeDocument(UINode node, LinkContext ctx) {
         StringBuilder sb = new StringBuilder();
 
         // QUAN TRONG: node duoc tach (VD: CANVAS) co the KHONG co absoluteBoundingBox rieng
@@ -213,7 +264,7 @@ public class HtmlGeneratorService {
                 .append(";\">\n")
                 .append(" <section class=\"figma-canvas\">\n");
 
-        renderNode(node, 2, sb);
+        renderNode(node, 2, sb, ctx);
 
         sb.append(" </section>\n</main>\n")
                 .append("<script>\n").append(responsiveScript()).append("</script>\n")
@@ -227,34 +278,44 @@ public class HtmlGeneratorService {
         return (count > 1 ? base + "-" + count : base) + ".html";
     }
 
-    private void renderNode(UINode node, int depth, StringBuilder sb) {
+    private void renderNode(UINode node, int depth, StringBuilder sb, LinkContext ctx) {
         String indent = " ".repeat(depth);
-        String tag = tagFor(node.getRole());
 
         // CANVAS (page) khong xuat ra the HTML, chi duyet tiep xuong children cua no
         if ("CANVAS".equals(node.getType())) {
             for (UINode child : node.getChildren()) {
-                renderNode(child, depth, sb);
+                renderNode(child, depth, sb, ctx);
             }
             return;
         }
+
+        String tag = tagFor(node.getRole());
+        String href = resolveHref(node, ctx);
+        if (href != null && !"button".equals(tag)) tag = "a";
 
         String cssClass = classFor(node);
         sb.append(indent)
                 .append("<").append(tag)
                 .append(" class=\"").append(cssClass).append("\"")
                 .append(" data-figma-type=\"").append(escape(node.getType())).append("\"")
-                .append(" data-figma-name=\"").append(escape(node.getName())).append("\">");
+                .append(" data-figma-name=\"").append(escape(node.getName())).append("\"");
+
+        if (href != null) {
+            if ("button".equals(tag)) {
+                sb.append(" onclick=\"location.href='").append(href).append("'\"");
+            } else {
+                sb.append(" href=\"").append(href).append("\"");
+            }
+        }
+        sb.append(">");
 
         if ("TEXT".equals(node.getType()) && node.getCharacters() != null) {
             sb.append(escape(node.getCharacters()));
         } else if (!node.getChildren().isEmpty()) {
             sb.append("\n");
-
             for (UINode child : node.getChildren()) {
-                renderNode(child, depth + 1, sb);
+                renderNode(child, depth + 1, sb, ctx);
             }
-
             sb.append(indent);
         }
 
@@ -293,6 +354,23 @@ public class HtmlGeneratorService {
             collectRenderableBounds(child, bounds);
         }
     }
+
+    private String resolveHref(UINode node, LinkContext ctx) {
+        if (ctx == null || node.getLinkTargetId() == null) return null;
+        String target = ctx.fileByNodeId().get(node.getLinkTargetId());
+        if (target == null || target.equals(ctx.currentFile())) return null;
+        return target;
+    }
+
+    private void indexNodes(UINode node, String filename, Map<String, String> fileByNodeId) {
+        if (node == null) return;
+        if (node.getId() != null) fileByNodeId.put(node.getId(), filename);
+        if (node.getChildren() != null) {
+            for (UINode child : node.getChildren()) indexNodes(child, filename, fileByNodeId);
+        }
+    }
+
+    private record LinkContext(Map<String, String> fileByNodeId, String currentFile) {}
 
     private static class Bounds {
         private boolean hasValue;
