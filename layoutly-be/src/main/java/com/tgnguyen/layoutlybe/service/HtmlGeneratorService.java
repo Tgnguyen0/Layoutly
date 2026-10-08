@@ -4,6 +4,7 @@ import com.tgnguyen.layoutlybe.model.UINode;
 import com.tgnguyen.layoutlybe.model.ir.DesignNode;
 import com.tgnguyen.layoutlybe.model.ir.DesignNodeMapper;
 import com.tgnguyen.layoutlybe.model.ir.NodeRole;
+import com.tgnguyen.layoutlybe.model.ir.TransitionSpec;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -142,8 +143,9 @@ public class HtmlGeneratorService {
         }
 
         // Luot 2: sinh HTML, truyen kem ngu canh de buoc 4 tra link
+        Map<String, TransitionSpec> incoming = collectIncomingTransitions(rootByFile, fileByNodeId);
         for (Map.Entry<String, UINode> entry : rootByFile.entrySet()) {
-            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey());
+            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey(), incoming);
             result.put(entry.getKey(), generateSingleNodeDocument(entry.getValue(), ctx));
         }
         return result;
@@ -174,8 +176,9 @@ public class HtmlGeneratorService {
 
         // Luot 2: sinh HTML kem ngu canh de tra link
         Map<String, String> result = new LinkedHashMap<>();
+        Map<String, TransitionSpec> incoming = collectIncomingTransitions(rootByFile, fileByNodeId);
         for (Map.Entry<String, UINode> entry : rootByFile.entrySet()) {
-            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey());
+            LinkContext ctx = new LinkContext(fileByNodeId, entry.getKey(), incoming);
             result.put(entry.getKey(), generateSingleNodeDocument(entry.getValue(), ctx));
         }
         return result;
@@ -203,7 +206,7 @@ public class HtmlGeneratorService {
     }
 
     private void collectByType(UINode node, String targetType,
-                                Map<String, String> result, Map<String, Integer> usedNames) {
+                               Map<String, String> result, Map<String, Integer> usedNames) {
         if (node == null) return;
 
         if (targetType.equals(node.getType())) {
@@ -252,6 +255,7 @@ public class HtmlGeneratorService {
                 .append("  <meta name=\"figma-height\" content=\"").append(round(height)).append("\">\n")
                 .append("  <title>").append(escape(node.getName())).append("</title>\n")
                 .append("  <link rel=\"stylesheet\" href=\"styles.css\">\n")
+                .append(viewTransitionStyle(ctx))
                 .append("</head>\n<body>\n");
         sb.append("<main class=\"figma-page\" style=\"--figma-width: ")
                 .append(round(width))
@@ -272,6 +276,17 @@ public class HtmlGeneratorService {
         return sb.toString();
     }
 
+    private String viewTransitionStyle(LinkContext ctx) {
+        if (ctx == null || ctx.incomingTransitionByFile().isEmpty()) return "";
+        TransitionSpec spec = ctx.incomingTransitionByFile().get(ctx.currentFile());
+        // Cross-document view transition can CA trang nguon lan trang dich opt-in,
+        // nen trang khong co transition di vao van phai co @view-transition.
+        String css = spec != null
+                ? CssGeneratorService.viewTransitionCss(spec, "LEFT")
+                : "@view-transition { navigation: auto; }\n";
+        return css.isEmpty() ? "" : "  <style>\n" + css + "  </style>\n";
+    }
+
     private String uniqueFilename(UINode node, Map<String, Integer> usedNames) {
         String base = toClassName(node.getName());
         int count = usedNames.merge(base, 1, Integer::sum);
@@ -279,6 +294,10 @@ public class HtmlGeneratorService {
     }
 
     private void renderNode(UINode node, int depth, StringBuilder sb, LinkContext ctx) {
+        renderNode(node, depth, sb, ctx, null);
+    }
+
+    private void renderNode(UINode node, int depth, StringBuilder sb, LinkContext ctx, String label) {
         String indent = " ".repeat(depth);
 
         // CANVAS (page) khong xuat ra the HTML, chi duyet tiep xuong children cua no
@@ -289,14 +308,24 @@ public class HtmlGeneratorService {
             return;
         }
 
+        if (node.getRole() == NodeRole.INPUT || node.getRole() == NodeRole.CHECKBOX) {
+            renderInput(node, indent, sb, label);
+            return;
+        }
         String tag = tagFor(node.getRole());
-        String href = resolveHref(node, ctx);
+        boolean scroll = "SCROLL_TO".equals(node.getLinkNavigation());
+        String href = scroll ? resolveScrollHref(node, ctx) : resolveHref(node, ctx);
+        // <a> long <a> la HTML khong hop le: parser tu dong dong the <a> ngoai, lam cac con
+        // mat containing block (menu bi tut ve goc trai tren). Neu ben trong da co link thi
+        // link con (cu the hon) thang, node cha khong render link.
+        if (href != null && hasLinkDescendant(node, ctx)) href = null;
         if (href != null && !"button".equals(tag)) tag = "a";
 
         String cssClass = classFor(node);
         sb.append(indent)
                 .append("<").append(tag)
                 .append(" class=\"").append(cssClass).append("\"")
+                .append(" id=\"").append(anchorId(node.getId())).append("\"")
                 .append(" data-figma-type=\"").append(escape(node.getType())).append("\"")
                 .append(" data-figma-name=\"").append(escape(node.getName())).append("\"");
 
@@ -306,6 +335,7 @@ public class HtmlGeneratorService {
             } else {
                 sb.append(" href=\"").append(href).append("\"");
             }
+            appendTransitionAttrs(node, sb);   // <-- thêm dòng này
         }
         sb.append(">");
 
@@ -313,13 +343,41 @@ public class HtmlGeneratorService {
             sb.append(escape(node.getCharacters()));
         } else if (!node.getChildren().isEmpty()) {
             sb.append("\n");
+            String prevLabel = null; // TEXT dung truoc <input> cung cap = label cua no
             for (UINode child : node.getChildren()) {
-                renderNode(child, depth + 1, sb, ctx);
+                renderNode(child, depth + 1, sb, ctx, prevLabel);
+                if ("TEXT".equals(child.getType()) && child.getCharacters() != null) prevLabel = child.getCharacters();
             }
             sb.append(indent);
         }
 
         sb.append("</").append(tag).append(">\n");
+    }
+
+    private void renderInput(UINode node, String indent, StringBuilder sb, String label) {
+        boolean checkbox = node.getRole() == NodeRole.CHECKBOX;
+        String placeholder = checkbox ? null : firstText(node);
+        String type = checkbox ? "checkbox" : InputSupport.inferType(node.getName(), placeholder, label);
+        sb.append(indent).append("<input type=\"").append(type).append("\"")
+                .append(" class=\"").append(classFor(node)).append("\"")
+                .append(" id=\"").append(anchorId(node.getId())).append("\"")
+                .append(" data-figma-type=\"").append(escape(node.getType())).append("\"")
+                .append(" data-figma-name=\"").append(escape(node.getName())).append("\"");
+        String fieldName = InputSupport.fieldName(label != null ? label : placeholder, node.getName());
+        if (fieldName != null) sb.append(" name=\"").append(escape(fieldName)).append("\"");
+        if (placeholder != null) sb.append(" placeholder=\"").append(escape(placeholder)).append("\"");
+        String aria = label != null ? label : placeholder;
+        if (aria != null) sb.append(" aria-label=\"").append(escape(aria)).append("\"");
+        sb.append(">\n");
+    }
+
+    private String firstText(UINode node) {
+        if ("TEXT".equals(node.getType()) && node.getCharacters() != null) return node.getCharacters();
+        for (UINode child : node.getChildren()) {
+            String t = firstText(child);
+            if (t != null) return t;
+        }
+        return null;
     }
 
     // Anh xa loai node Figma sang the HTML phu hop
@@ -355,6 +413,19 @@ public class HtmlGeneratorService {
         }
     }
 
+    private String hrefOf(UINode node, LinkContext ctx) {
+        return "SCROLL_TO".equals(node.getLinkNavigation())
+                ? resolveScrollHref(node, ctx) : resolveHref(node, ctx);
+    }
+
+    private boolean hasLinkDescendant(UINode node, LinkContext ctx) {
+        if (node.getChildren() == null) return false;
+        for (UINode child : node.getChildren()) {
+            if (hrefOf(child, ctx) != null || hasLinkDescendant(child, ctx)) return true;
+        }
+        return false;
+    }
+
     private String resolveHref(UINode node, LinkContext ctx) {
         if (ctx == null || node.getLinkTargetId() == null) return null;
         String target = ctx.fileByNodeId().get(node.getLinkTargetId());
@@ -370,7 +441,56 @@ public class HtmlGeneratorService {
         }
     }
 
-    private record LinkContext(Map<String, String> fileByNodeId, String currentFile) {}
+    private Map<String, TransitionSpec> collectIncomingTransitions(
+            Map<String, UINode> rootByFile, Map<String, String> fileByNodeId) {
+        Map<String, Map<TransitionSpec, Integer>> counts = new HashMap<>();
+        for (Map.Entry<String, UINode> e : rootByFile.entrySet()) {
+            countTransitions(e.getValue(), e.getKey(), fileByNodeId, counts);
+        }
+        Map<String, TransitionSpec> result = new HashMap<>();
+        for (Map.Entry<String, Map<TransitionSpec, Integer>> e : counts.entrySet()) {
+            TransitionSpec best = null;
+            int bestCount = 0;
+            for (Map.Entry<TransitionSpec, Integer> c : e.getValue().entrySet()) {
+                if (c.getValue() > bestCount) { best = c.getKey(); bestCount = c.getValue(); } // hoa: lay cai gap truoc
+            }
+            if (best != null) result.put(e.getKey(), best);
+        }
+        return result;
+    }
+
+    private void countTransitions(UINode node, String sourceFile, Map<String, String> fileByNodeId,
+                                  Map<String, Map<TransitionSpec, Integer>> counts) {
+        if (node == null) return;
+        if (node.getLinkTargetId() != null && !"SCROLL_TO".equals(node.getLinkNavigation())) {
+            String target = fileByNodeId.get(node.getLinkTargetId());
+            TransitionSpec spec = new TransitionSpec(
+                    node.getTransitionType(), node.getTransitionDurationMs(), node.getTransitionEasing());
+            if (target != null && !target.equals(sourceFile) && spec.isPresent()) {
+                counts.computeIfAbsent(target, k -> new LinkedHashMap<>()).merge(spec, 1, Integer::sum);
+            }
+        }
+        if (node.getChildren() != null) {
+            for (UINode child : node.getChildren()) countTransitions(child, sourceFile, fileByNodeId, counts);
+        }
+    }
+
+    private String anchorId(String nodeId) {
+        return "node-" + toClassName(nodeId);
+    }
+
+    /** SCROLL_TO: "#node-x" neu cung file, "file.html#node-x" neu khac file. Khong co dich thi null. */
+    private String resolveScrollHref(UINode node, LinkContext ctx) {
+        if (ctx == null || node.getLinkTargetId() == null) return null;
+        String targetFile = ctx.fileByNodeId().get(node.getLinkTargetId());
+        if (targetFile == null) return null;
+        String anchor = "#" + anchorId(node.getLinkTargetId());
+        return targetFile.equals(ctx.currentFile()) ? anchor : targetFile + anchor;
+    }
+
+    private record LinkContext(Map<String, String> fileByNodeId,
+                               String currentFile,
+                               Map<String, TransitionSpec> incomingTransitionByFile) {}
 
     private static class Bounds {
         private boolean hasValue;
@@ -421,5 +541,22 @@ public class HtmlGeneratorService {
     private String escape(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private void appendTransitionAttrs(UINode node, StringBuilder sb) {
+        TransitionSpec spec = new TransitionSpec(
+                node.getTransitionType(),
+                node.getTransitionDurationMs(),
+                node.getTransitionEasing());
+        TransitionCssMapper.CssTransition css = TransitionCssMapper.toCss(spec);
+        if (css == null) return;
+
+        // Giữ type gốc của Figma (DISSOLVE, PUSH, ...) để bước 5 còn biết hướng trượt.
+        // Nếu type null thì không ghi attribute.
+        if (spec.type() != null) {
+            sb.append(" data-transition=\"").append(escape(spec.type())).append("\"");
+        }
+        sb.append(" data-duration=\"").append(css.durationMs()).append("\"")
+                .append(" data-easing=\"").append(escape(css.easing())).append("\"");
     }
 }
