@@ -45,6 +45,7 @@ public class FigmaParserService {
             }
         }
 
+        LinkInfo link = parseLink(node);
         return DesignNode.builder()
                 .id(textOf(node, "id"))
                 .name(textOf(node, "name"))
@@ -56,14 +57,22 @@ public class FigmaParserService {
                 .style(parseStyle(node))
                 .asset(parseAsset(node))
                 .role(RoleClassifier.classify(node))   // <-- thêm dòng này
-                .linkTargetId(parseLinkTarget(node))
+                .linkTargetId(link.destinationId())
+                .transition(link.transition())
+                .linkNavigation(link.navigation())
                 .children(children)
                 .build();
     }
 
-    private String parseLinkTarget(JsonNode node) {
+    private record LinkInfo(String destinationId, String navigation, TransitionSpec transition) {
+        static LinkInfo none() {
+            return new LinkInfo(null, null, TransitionSpec.none());
+        }
+    }
+
+    private LinkInfo parseLink(JsonNode node) {
         JsonNode interactions = node.get("interactions");
-        if (interactions == null || !interactions.isArray()) return null;
+        if (interactions == null || !interactions.isArray()) return LinkInfo.none();
 
         for (JsonNode interaction : interactions) {
             if (!"ON_CLICK".equals(textOf(interaction.get("trigger"), "type"))) continue;
@@ -72,14 +81,53 @@ public class FigmaParserService {
             if (actions == null || !actions.isArray()) continue;
 
             for (JsonNode action : actions) {
-                if ("NODE".equals(textOf(action, "type"))
-                        && "NAVIGATE".equals(textOf(action, "navigation"))) {
-                    String destinationId = textOf(action, "destinationId");
-                    if (destinationId != null && !destinationId.isBlank()) return destinationId;
-                }
+                String navigation = textOf(action, "navigation");
+                if (!"NODE".equals(textOf(action, "type"))
+                        || !("NAVIGATE".equals(navigation) || "SCROLL_TO".equals(navigation))) continue;
+
+                String destinationId = textOf(action, "destinationId");
+                if (destinationId == null || destinationId.isBlank()) continue;
+
+                return new LinkInfo(destinationId, navigation, parseTransition(action.get("transition"), node));
             }
         }
-        return null;
+        return LinkInfo.none();
+    }
+
+    private TransitionSpec parseTransition(JsonNode transition, JsonNode node) {
+        String type = null;
+        Integer durationMs = null;
+        String easing = null;
+
+        if (transition != null && !transition.isNull()) {
+            type = textOf(transition, "type");
+            Double seconds = doubleOf(transition, "duration");      // trong action: don vi giay
+            if (seconds != null) durationMs = (int) Math.round(seconds * 1000);
+            easing = parseEasing(transition.get("easing"));
+        }
+
+        // Fallback: field cu tren node (don vi ms), day la nguon chinh cho link ON_CLICK
+        if (durationMs == null) {
+            Double ms = doubleOf(node, "transitionDuration");
+            if (ms != null) durationMs = (int) Math.round(ms);
+        }
+        if (easing == null) easing = textOf(node, "transitionEasing");
+
+        return new TransitionSpec(type, durationMs, easing);
+    }
+
+    private String parseEasing(JsonNode easing) {
+        if (easing == null || easing.isNull()) return null;
+        String type = textOf(easing, "type");
+        if ("CUSTOM_CUBIC_BEZIER".equals(type)) {
+            JsonNode b = easing.get("easingFunctionCubicBezier");
+            Double x1 = doubleOf(b, "x1"), y1 = doubleOf(b, "y1");
+            Double x2 = doubleOf(b, "x2"), y2 = doubleOf(b, "y2");
+            if (x1 != null && y1 != null && x2 != null && y2 != null) {
+                return String.format(java.util.Locale.ROOT, "cubic-bezier(%s, %s, %s, %s)", x1, y1, x2, y2);
+            }
+        }
+        return type;
     }
 
     private LayoutSpec parseLayout(JsonNode node) {

@@ -23,6 +23,7 @@ const TABS = [
   { key: 'PREVIEW', label: 'Preview' },
   { key: 'HTML', label: 'HTML', file: 'index.html' },
   { key: 'CSS', label: 'CSS', file: 'styles.css' },
+  { key: 'REACT', label: 'React', file: 'Page.jsx (trang đầu tiên)' }, 
 ]
 
 function extractFileKey(input) {
@@ -158,6 +159,7 @@ export default function App() {
   const [selectionReady, setSelectionReady] = useState(false)
   const [exportScope, setExportScope] = useState('SELECTION')
   const [exportType, setExportType] = useState('AUTO')
+  const [exportFormat, setExportFormat] = useState('HTML')
   const [snapshot, setSnapshot] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [tab, setTab] = useState('PREVIEW')
@@ -248,7 +250,8 @@ export default function App() {
     setBusy('export')
     setError('')
     try {
-      await downloadSnapshotZip(snapshot.snapshotId, exportType)
+      await downloadSnapshotZip(snapshot.snapshotId, exportType, exportFormat)
+      setStatus(exportFormat === 'REACT' ? 'Đã xuất project React (Vite).' : 'Đã xuất file zip HTML/CSS.')
       setStatus('Đã xuất file zip HTML/CSS.')
       notify('Xuất zip thành công')
     } catch (e) {
@@ -337,9 +340,18 @@ export default function App() {
           <option value="PAGE">Tất cả frame trong page</option>
         </select>
         <select
-          value={exportType}
-          onChange={(e) => setExportType(e.target.value)}
+          value={exportFormat}
+          onChange={(e) => setExportFormat(e.target.value)}
           className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-[#1769ff]"
+        >
+          <option value="HTML">HTML + CSS</option>
+          <option value="REACT">React (Vite)</option>
+        </select>
+        <select
+          value={exportType}
+          disabled={exportFormat === 'REACT'}
+          onChange={(e) => setExportType(e.target.value)}
+          className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-[#1769ff] disabled:opacity-40"
         >
           <option value="AUTO">Tách tự động</option>
           <option value="CANVAS">Tách theo Page</option>

@@ -96,6 +96,7 @@ export const snapshotApi = {
   structure: async (id) => JSON.parse(await getText(`/snapshots/${id}/structure`)),
   html: (id) => getText(`/snapshots/${id}/html`),
   css: (id) => getText(`/snapshots/${id}/css`),
+  react: (id) => getText(`/snapshots/${id}/react`),  
 }
 
 export async function fetchSnapshotPreview(id) {
@@ -104,8 +105,17 @@ export async function fetchSnapshotPreview(id) {
   return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + base) : base + html
 }
 
-export async function downloadSnapshotZip(id, type = 'AUTO') {
-  const res = await fetch(`${API}/snapshots/${id}/export?format=HTML&type=${encodeURIComponent(type)}`)
+// export async function downloadSnapshotZip(id, type = 'AUTO') {
+//   const res = await fetch(`${API}/snapshots/${id}/export?format=HTML&type=${encodeURIComponent(type)}`)
+//   if (!res.ok) throw await readError(res)
+//   triggerDownload(await res.blob(), 'layoutly-html-css-export.zip')
+// }
+
+export async function downloadSnapshotZip(id, type = 'AUTO', format = 'HTML') {
+  const res = await fetch(
+    `${API}/snapshots/${id}/export?format=${encodeURIComponent(format)}&type=${encodeURIComponent(type)}`
+  )
   if (!res.ok) throw await readError(res)
-  triggerDownload(await res.blob(), 'layoutly-html-css-export.zip')
+  const name = format === 'REACT' ? 'layoutly-react-export.zip' : 'layoutly-html-css-export.zip'
+  triggerDownload(await res.blob(), name)
 }

@@ -54,6 +54,12 @@ public class UINode {
     private Double paddingLeft;
     private Double itemSpacing;
 
-    private NodeRole role;   // <-- thêm dòng này
+    private NodeRole role;
     private String linkTargetId;
+
+    // Animation
+    private String transitionType;
+    private Integer transitionDurationMs;
+    private String transitionEasing;
+    private String linkNavigation;
 }
