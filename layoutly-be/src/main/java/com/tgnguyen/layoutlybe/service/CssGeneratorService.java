@@ -414,6 +414,9 @@ public class CssGeneratorService {
     }
 
     public String generate(DesignNode root, Map<String, String> imageUrlByNodeId) {
+        if (root != null && !"DOCUMENT".equals(root.getType()) && !"CANVAS".equals(root.getType())) {
+            return generateForNode(root, imageUrlByNodeId);
+        }
         StringBuilder css = new StringBuilder();
         appendBaseStyles(css);
         if (root == null) return css.toString();
@@ -438,6 +441,7 @@ public class CssGeneratorService {
         writeLayoutContainer(node, css);
         writeCommonProperties(node, null, css, imageUrlByNodeId, false);
         css.append("}\n\n");
+        writeAssetRenderBounds(node, css, imageUrlByNodeId);
 
         for (DesignNode child : childrenOf(node)) {
             walk(child, node, css, imageUrlByNodeId);
@@ -459,6 +463,7 @@ public class CssGeneratorService {
         writeLayoutContainer(node, css);
         writeCommonProperties(node, parent, css, imageUrlByNodeId, sizeHandledByPosition);
         css.append("}\n\n");
+        writeAssetRenderBounds(node, css, imageUrlByNodeId);
 
         for (DesignNode child : childrenOf(node)) {
             walk(child, node, css, imageUrlByNodeId);
@@ -594,13 +599,16 @@ public class CssGeneratorService {
         writeSizing(node, parent, css, sizeHandledByPosition);
         StyleSpec style = styleOf(node);
 
+        if (Boolean.FALSE.equals(style.getVisible())) css.append("  display: none;\n");
+        if (Boolean.TRUE.equals(style.getClipsContent())) css.append("  overflow: hidden;\n");
+
         String imageUrl = imageUrlByNodeId.get(node.getId());
-        if (imageUrl != null && !imageUrl.isBlank()) {
+        if (imageUrl != null && !imageUrl.isBlank() && !hasExpandedRenderBounds(node)) {
             css.append("  background-image: url(\"").append(escapeCssUrl(imageUrl)).append("\");\n");
             css.append("  background-size: cover;\n");
             css.append("  background-position: center;\n");
             css.append("  background-repeat: no-repeat;\n");
-        } else if (style.getBackgroundColor() != null) {
+        } else if ((imageUrl == null || imageUrl.isBlank()) && style.getBackgroundColor() != null) {
             if ("TEXT".equals(node.getType())) {
                 css.append("  color: ").append(style.getBackgroundColor()).append(";\n");
             } else {
@@ -610,20 +618,57 @@ public class CssGeneratorService {
         if (style.getOpacity() != null && style.getOpacity() < 1.0) {
             css.append("  opacity: ").append(style.getOpacity()).append(";\n");
         }
-        if (style.getCornerRadius() != null && style.getCornerRadius() > 0) {
+        if ("ELLIPSE".equals(node.getType())) {
+            css.append("  border-radius: 50%;\n");
+        } else if (style.getCornerRadii() != null && style.getCornerRadii().size() == 4) {
+            css.append("  border-radius:");
+            for (Double radius : style.getCornerRadii()) css.append(" ").append(round(radius)).append("px");
+            css.append(";\n");
+        } else if (style.getCornerRadius() != null && style.getCornerRadius() > 0) {
             css.append("  border-radius: ").append(round(style.getCornerRadius())).append("px;\n");
         }
         // Node da export thanh anh (vd icon vector): net vien nam san trong anh roi,
         // them border CSS se tao ra khung vuong quanh icon.
         boolean rasterized = imageUrl != null && !imageUrl.isBlank()
                 && node.getAsset() != null && node.getAsset().exportAsImage();
-        if (!rasterized && style.getBorderColor() != null && style.getBorderWidth() != null) {
-            css.append("  border: ").append(round(style.getBorderWidth())).append("px solid ")
+        boolean text = "TEXT".equals(node.getType());
+        if (!rasterized && style.getBorderColor() != null && style.getBorderWidth() != null
+                && style.getBorderWidth() > 0) {
+            // A Figma text stroke follows glyphs, not the text layer's bounding box.
+            css.append(text ? "  -webkit-text-stroke: " : "  border: ")
+                    .append(round(style.getBorderWidth())).append(text ? "px " : "px solid ")
                     .append(style.getBorderColor()).append(";\n");
         }
+        if (!rasterized && style.getShadows() != null && !style.getShadows().isEmpty()) {
+            css.append("  box-shadow: ");
+            for (int i = 0; i < style.getShadows().size(); i++) {
+                if (i > 0) css.append(", ");
+                ShadowSpec shadow = style.getShadows().get(i);
+                if (shadow.inset()) css.append("inset ");
+                css.append(round(shadow.x())).append("px ").append(round(shadow.y())).append("px ")
+                        .append(round(shadow.blur())).append("px ").append(round(shadow.spread()))
+                        .append("px ").append(shadow.color());
+            }
+            css.append(";\n");
+        }
 
-        if ("TEXT".equals(node.getType())) {
-            css.append("  white-space: pre-wrap;\n");
+        if (text) {
+            css.append("  white-space: ")
+                    .append("WIDTH_AND_HEIGHT".equals(style.getTextAutoResize()) ? "pre" : "pre-wrap")
+                    .append(";\n");
+            css.append("  overflow: visible;\n");
+            if (style.getTextAlign() != null) {
+                String align = switch (style.getTextAlign()) {
+                    case "CENTER" -> "center";
+                    case "RIGHT" -> "right";
+                    case "JUSTIFIED" -> "justify";
+                    default -> "left";
+                };
+                css.append("  text-align: ").append(align).append(";\n");
+            }
+            if (style.getFontStyle() != null && style.getFontStyle().toLowerCase(java.util.Locale.ROOT).contains("italic")) {
+                css.append("  font-style: italic;\n");
+            }
             if (style.getFontFamily() != null) {
                 css.append("  font-family: '").append(escapeCssString(style.getFontFamily()))
                         .append("', sans-serif;\n");
@@ -633,6 +678,33 @@ public class CssGeneratorService {
             if (style.getLineHeight() != null) css.append("  line-height: ").append(round(style.getLineHeight())).append("px;\n");
             if (style.getLetterSpacing() != null) css.append("  letter-spacing: ").append(round(style.getLetterSpacing())).append("px;\n");
         }
+    }
+
+    private boolean hasExpandedRenderBounds(DesignNode node) {
+        Bounds bounds = boundsOf(node);
+        Bounds render = node.getAsset() == null ? null : node.getAsset().renderBounds();
+        if (render == null || render.x() == null || render.y() == null || render.width() == null
+                || render.height() == null || bounds.x() == null || bounds.y() == null
+                || bounds.width() == null || bounds.height() == null) return false;
+        return Math.abs(render.x() - bounds.x()) > 0.01 || Math.abs(render.y() - bounds.y()) > 0.01
+                || Math.abs(render.width() - bounds.width()) > 0.01
+                || Math.abs(render.height() - bounds.height()) > 0.01;
+    }
+
+    private void writeAssetRenderBounds(DesignNode node, StringBuilder css, Map<String, String> images) {
+        String url = images.get(node.getId());
+        if (url == null || url.isBlank() || !hasExpandedRenderBounds(node)) return;
+        Bounds bounds = boundsOf(node);
+        Bounds render = node.getAsset().renderBounds();
+        // Figma's PNG includes stroke/shadow pixels beyond the layout bounds.
+        css.append(".node-").append(toClassName(node.getId())).append("::before {\n")
+                .append("  content: '';\n  position: absolute;\n  pointer-events: none;\n")
+                .append("  left: ").append(round(render.x() - bounds.x())).append("px;\n")
+                .append("  top: ").append(round(render.y() - bounds.y())).append("px;\n")
+                .append("  width: ").append(round(render.width())).append("px;\n")
+                .append("  height: ").append(round(render.height())).append("px;\n")
+                .append("  background: url(\"").append(escapeCssUrl(url))
+                .append("\") 0 0 / 100% 100% no-repeat;\n}\n\n");
     }
 
     private void writeSizing(DesignNode node, DesignNode parent, StringBuilder css, boolean sizeHandledByPosition) {
@@ -692,7 +764,8 @@ public class CssGeneratorService {
         css.append("  margin: 0 auto;\n  background: #ffffff;\n  overflow: hidden;\n}\n\n");
         css.append(".figma-canvas {\n");
         css.append("  position: relative;\n  width: 100%;\n  transform-origin: top left;\n}\n\n");
-        css.append(".figma-node { overflow: hidden; }\n\n");
+        css.append(".figma-node { overflow: visible; }\n\n");
+        css.append(":where(button.figma-node) { appearance: none; border: 0; background: transparent; font: inherit; color: inherit; text-align: inherit; cursor: pointer; }\n\n");
         css.append(":where(a.figma-node) { display: block; text-decoration: none; color: inherit; }\n\n");
         css.append(":where(input.figma-node) { padding: 0 12px; font: inherit; color: inherit; background-color: #fff; }\n");
         css.append(":where(input.figma-node):focus-visible { outline: 2px solid #2684ff; outline-offset: 2px; }\n");

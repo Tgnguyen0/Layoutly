@@ -5,6 +5,7 @@ import com.tgnguyen.layoutlybe.dto.SnapshotResponse;
 import com.tgnguyen.layoutlybe.model.ir.Bounds;
 import com.tgnguyen.layoutlybe.model.ir.DesignNode;
 import com.tgnguyen.layoutlybe.model.snapshot.FigmaSnapshot;
+import com.tgnguyen.layoutlybe.model.snapshot.ImportSource;
 import com.tgnguyen.layoutlybe.service.AssetExportService;
 import com.tgnguyen.layoutlybe.service.CssGeneratorService;
 import com.tgnguyen.layoutlybe.service.DesignStructureService;
@@ -29,7 +30,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.net.URLDecoder;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -41,7 +44,8 @@ import java.util.regex.Pattern;
 @RequestMapping("/api")
 public class SnapshotController {
     private static final String TOKEN_HEADER = "X-Figma-Token";
-    private static final Pattern FIGMA_URL_PATTERN = Pattern.compile("/(?:file|design)/([^/?#]+)");
+    private static final Pattern FIGMA_URL_PATTERN = Pattern.compile("/(?:file|design|proto|board)/([^/?#]+)");
+    private static final Pattern NODE_ID_PATTERN = Pattern.compile("[?&]node-id=([^&#]+)");
 
     private final FigmaSnapshotService snapshotService;
     private final DesignStructureService structureService;
@@ -73,7 +77,8 @@ public class SnapshotController {
     @PostMapping(value = "/figma/import", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<SnapshotResponse> importFigma(@RequestBody ImportRequest request,
                                                @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.importSnapshot(resolveFileKey(request), token).map(this::toResponse);
+        ImportTarget target = resolveImportTarget(request);
+        return snapshotService.importSnapshot(target.fileKey(), target.nodeId(), token).map(this::toResponse);
     }
 
     @PostMapping("/snapshots/{snapshotId}/refresh")
@@ -89,43 +94,49 @@ public class SnapshotController {
 
     @GetMapping("/snapshots/{snapshotId}/tree")
     public Object getTree(@PathVariable String snapshotId) {
-        return snapshotService.requireSnapshot(snapshotId).getDesignIr();
+        return selectedRoot(snapshotService.requireSnapshot(snapshotId));
     }
 
     @GetMapping("/snapshots/{snapshotId}/structure")
     public DesignStructureSummary getStructure(@PathVariable String snapshotId) {
-        return structureService.analyze(snapshotService.requireSnapshot(snapshotId).getDesignIr());
+        return structureService.analyze(selectedRoot(snapshotService.requireSnapshot(snapshotId)));
     }
 
     @GetMapping(value = "/snapshots/{snapshotId}/html", produces = MediaType.TEXT_PLAIN_VALUE)
     public String getHtml(@PathVariable String snapshotId) {
-        return htmlGeneratorService.generate(snapshotService.requireSnapshot(snapshotId).getDesignIr());
+        return htmlGeneratorService.generate(selectedRoot(snapshotService.requireSnapshot(snapshotId)));
     }
 
     @GetMapping(value = "/snapshots/{snapshotId}/css", produces = "text/css")
     public String getCss(@PathVariable String snapshotId) {
+        FigmaSnapshot snapshot = snapshotService.requireSnapshot(snapshotId);
         return cssGeneratorService.generate(
-                snapshotService.requireSnapshot(snapshotId).getDesignIr(),
+                selectedRoot(snapshot),
                 snapshotService.getLocalAssetUrls(snapshotId));
     }
 
     @GetMapping(value = "/snapshots/{snapshotId}/react", produces = MediaType.TEXT_PLAIN_VALUE)
     public String getReact(@PathVariable String snapshotId) {
-        return reactGeneratorService.generate(snapshotService.requireSnapshot(snapshotId).getDesignIr());
+        return reactGeneratorService.generate(selectedRoot(snapshotService.requireSnapshot(snapshotId)));
     }
 
     @GetMapping(value = "/snapshots/{snapshotId}/preview", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<String> getPreview(@PathVariable String snapshotId,
                                    @RequestParam(defaultValue = "1440") double targetWidth) {
         FigmaSnapshot snapshot = snapshotService.requireSnapshot(snapshotId);
-        DesignNode previewRoot = selectPreviewRoot(snapshot.getDesignIr(), targetWidth);
-        return snapshotService.getPreviewImageUrls(snapshotId, previewRoot).map(previewUrls -> {
-            String html = htmlGeneratorService.generateForNode(previewRoot);
-            String css = cssGeneratorService.generateForNode(previewRoot, previewUrls);
-            return html.replace(
-                    "<link rel=\"stylesheet\" href=\"styles.css\">",
-                    "<style>\n" + css + "\n</style>");
-        });
+        DesignNode selectedRoot = selectedRoot(snapshot);
+        DesignNode previewRoot = selectedRoot == snapshot.getDesignIr()
+                ? selectPreviewRoot(snapshot.getDesignIr(), targetWidth)
+                : selectedRoot;
+        return snapshotService.getPreviewImageUrls(snapshotId, previewRoot)
+                .onErrorReturn(Map.of())
+                .map(previewUrls -> {
+                    String html = htmlGeneratorService.generateForNode(previewRoot);
+                    String css = cssGeneratorService.generateForNode(previewRoot, previewUrls);
+                    return html.replace(
+                            "<link rel=\"stylesheet\" href=\"styles.css\">",
+                            "<style>\n" + css + "\n</style>");
+                });
     }
 
     @GetMapping("/snapshots/{snapshotId}/assets/{fileName}")
@@ -150,11 +161,12 @@ public class SnapshotController {
                                                 @RequestParam(defaultValue = "HTML") String format,
                                                 @RequestParam(defaultValue = "AUTO") String type) {
         FigmaSnapshot snapshot = snapshotService.requireSnapshot(snapshotId);
+        DesignNode exportRoot = selectedRoot(snapshot);
         return snapshotService.getAssets(snapshotId).map(assets -> {
             boolean react = "REACT".equalsIgnoreCase(format);
             byte[] content = react
-                    ? reactProjectExportService.export(snapshot.getDesignIr(), assets)
-                    : htmlProjectExportService.export(snapshot.getDesignIr(), assets, type);
+                    ? reactProjectExportService.export(exportRoot, assets)
+                    : htmlProjectExportService.export(exportRoot, assets, type);
             String suffix = react ? "-react.zip" : "-html.zip";
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("application/zip"))
@@ -177,17 +189,50 @@ public class SnapshotController {
     }
 
     private SnapshotResponse toResponse(FigmaSnapshot snapshot) {
-        return SnapshotResponse.from(snapshot, structureService.analyze(snapshot.getDesignIr()));
+        return SnapshotResponse.from(snapshot, structureService.analyze(selectedRoot(snapshot)));
     }
 
-    private String resolveFileKey(ImportRequest request) {
+    private ImportTarget resolveImportTarget(ImportRequest request) {
         if (request == null) throw new IllegalArgumentException("Thieu du lieu import Figma.");
-        if (request.fileKey() != null && !request.fileKey().isBlank()) return request.fileKey();
+        String fileKey = null;
+        String nodeId = hasText(request.nodeId()) ? normalizeNodeId(request.nodeId()) : null;
+        if (hasText(request.fileKey())) fileKey = request.fileKey();
         if (request.figmaUrl() != null) {
             Matcher matcher = FIGMA_URL_PATTERN.matcher(request.figmaUrl());
-            if (matcher.find()) return matcher.group(1);
+            if (!hasText(fileKey) && matcher.find()) fileKey = matcher.group(1);
+
+            Matcher nodeMatcher = NODE_ID_PATTERN.matcher(request.figmaUrl());
+            if (!hasText(nodeId) && nodeMatcher.find()) {
+                nodeId = normalizeNodeId(URLDecoder.decode(nodeMatcher.group(1), StandardCharsets.UTF_8));
+            }
         }
+        if (hasText(fileKey)) return new ImportTarget(fileKey, nodeId);
         throw new IllegalArgumentException("Hay nhap URL Figma hoac File Key hop le.");
+    }
+
+    private DesignNode selectedRoot(FigmaSnapshot snapshot) {
+        if (snapshot == null || snapshot.getDesignIr() == null) return null;
+        if (snapshot.getSource() != ImportSource.FIGMA_REST) return snapshot.getDesignIr();
+        DesignNode selected = findNodeById(snapshot.getDesignIr(), snapshot.getRootNodeId());
+        return selected == null ? snapshot.getDesignIr() : selected;
+    }
+
+    private DesignNode findNodeById(DesignNode node, String nodeId) {
+        if (node == null || !hasText(nodeId)) return null;
+        if (nodeId.equals(node.getId())) return node;
+        for (DesignNode child : childrenOf(node)) {
+            DesignNode found = findNodeById(child, nodeId);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private String normalizeNodeId(String nodeId) {
+        return nodeId == null ? null : nodeId.trim().replace('-', ':');
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String fileName(String path) {
@@ -243,7 +288,13 @@ public class SnapshotController {
         return node == null || node.getChildren() == null ? List.of() : node.getChildren();
     }
 
-    public record ImportRequest(String fileKey, String figmaUrl) {
+    public record ImportRequest(String fileKey, String figmaUrl, String nodeId) {
+        public ImportRequest(String fileKey, String figmaUrl) {
+            this(fileKey, figmaUrl, null);
+        }
+    }
+
+    private record ImportTarget(String fileKey, String nodeId) {
     }
 
     public record FixtureRequest(String caseName) {

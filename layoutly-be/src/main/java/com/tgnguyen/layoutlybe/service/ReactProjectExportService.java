@@ -39,7 +39,7 @@ public class ReactProjectExportService {
         }
     }
 
-    Map<String, byte[]> buildProject(DesignNode root, AssetExportService.AssetBundle assets) {
+    public Map<String, byte[]> buildProject(DesignNode root, AssetExportService.AssetBundle assets) {
         Map<String, byte[]> files = new LinkedHashMap<>();
         List<ReactGeneratorService.GeneratedPage> pages = reactGeneratorService.generatePages(root);
         for (ReactGeneratorService.GeneratedPage page : pages) {

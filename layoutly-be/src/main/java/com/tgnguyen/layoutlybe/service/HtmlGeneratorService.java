@@ -72,6 +72,9 @@ public class HtmlGeneratorService {
     // Sinh HTML cau truc (chua co CSS) tu cay UINode.
     // Muc tieu tuan 7: chi quan tam cau truc long nhau dung, chua quan tam style.
     public String generate(UINode root) {
+        if (root != null && !"DOCUMENT".equals(root.getType()) && !"CANVAS".equals(root.getType())) {
+            return generateSingleNodeDocument(root);
+        }
         StringBuilder sb = new StringBuilder();
         Bounds viewportBounds = findRenderableBounds(root);
         double viewportWidth = viewportBounds != null ? viewportBounds.width() : 1440;
@@ -116,8 +119,15 @@ public class HtmlGeneratorService {
         Map<String, String> fileByNodeId = new HashMap<>();
         Map<String, UINode> rootByFile = new LinkedHashMap<>();
 
+        if (!"DOCUMENT".equals(root.getType()) && !"CANVAS".equals(root.getType())) {
+            String filename = uniqueFilename(root, usedNames);
+            rootByFile.put(filename, root);
+            indexNodes(root, filename, fileByNodeId);
+        }
+
         // Luot 1: dat ten file cho tung trang + danh chi muc node -> file
-        for (UINode canvas : root.getChildren()) {
+        List<UINode> canvases = "CANVAS".equals(root.getType()) ? List.of(root) : root.getChildren();
+        for (UINode canvas : canvases) {
             if (!"CANVAS".equals(canvas.getType())) continue;
 
             List<UINode> topFrames = new ArrayList<>();

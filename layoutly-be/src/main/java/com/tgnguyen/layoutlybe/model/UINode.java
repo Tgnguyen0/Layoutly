@@ -1,6 +1,8 @@
 package com.tgnguyen.layoutlybe.model;
 
 import com.tgnguyen.layoutlybe.model.ir.NodeRole;
+import com.tgnguyen.layoutlybe.model.ir.ShadowSpec;
+import com.tgnguyen.layoutlybe.model.ir.Bounds;
 import lombok.*;
 
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ public class UINode {
     private String characters;
     private List<UINode> children = new ArrayList<>();
     private boolean exportAsImage;
+    private Bounds assetRenderBounds;
 
     // Vi tri va kich thuoc tuyet doi (tu absoluteBoundingBox)
     private Double x;
@@ -46,6 +49,13 @@ public class UINode {
     private Double fontWeight;
     private Double lineHeight;
     private Double letterSpacing;
+    private String textAlign;
+    private String textAutoResize;
+    private String fontStyle;
+    private List<Double> cornerRadii;
+    private List<ShadowSpec> shadows;
+    private Boolean clipsContent;
+    private Boolean visible;
 
     // Khoang cach ben trong / giua cac phan tu con (Auto Layout)
     private Double paddingTop;

@@ -221,18 +221,61 @@ public class FigmaParserService {
                 .fontWeight(doubleOf(textStyle, "fontWeight"))
                 .lineHeight(doubleOf(textStyle, "lineHeightPx"))
                 .letterSpacing(doubleOf(textStyle, "letterSpacing"))
+                .textAlign(textOf(textStyle, "textAlignHorizontal"))
+                .textAutoResize(textOf(textStyle, "textAutoResize"))
+                .fontStyle(textOf(textStyle, "fontStyle"))
+                .cornerRadii(parseCornerRadii(node))
+                .shadows(parseShadows(node))
+                .clipsContent(booleanOf(node, "clipsContent"))
+                .visible(booleanOf(node, "visible"))
                 .build();
+    }
+
+    private List<Double> parseCornerRadii(JsonNode node) {
+        JsonNode radii = node.get("rectangleCornerRadii");
+        if (radii == null || !radii.isArray() || radii.size() != 4) return List.of();
+        List<Double> result = new ArrayList<>();
+        for (JsonNode radius : radii) {
+            if (!radius.isNumber()) return List.of();
+            result.add(Math.max(0, radius.asDouble()));
+        }
+        Double rotation = doubleOf(node, "rotation");
+        if (rotation != null) {
+            int turns = (int) Math.round(rotation / (Math.PI / 2));
+            // REST bounds already include rotation; rotate the corners, not the bounds again.
+            if (Math.abs(rotation - turns * Math.PI / 2) < 0.0001) {
+                java.util.Collections.rotate(result, turns);
+            }
+        }
+        return result;
+    }
+
+    private List<ShadowSpec> parseShadows(JsonNode node) {
+        List<ShadowSpec> shadows = new ArrayList<>();
+        JsonNode effects = node.get("effects");
+        if (effects == null || !effects.isArray()) return shadows;
+        for (JsonNode effect : effects) {
+            String type = textOf(effect, "type");
+            if (!isVisible(effect) || !("DROP_SHADOW".equals(type) || "INNER_SHADOW".equals(type))) continue;
+            String color = colorOf(effect.get("color"), null);
+            if (color == null) continue;
+            JsonNode offset = effect.path("offset");
+            shadows.add(new ShadowSpec("INNER_SHADOW".equals(type),
+                    offset.path("x").asDouble(), offset.path("y").asDouble(),
+                    effect.path("radius").asDouble(), effect.path("spread").asDouble(), color));
+        }
+        return shadows;
     }
 
     private AssetSpec parseAsset(JsonNode node) {
         String type = textOf(node, "type");
-        if (isVectorType(type)) return new AssetSpec(true, "VECTOR");
+        if (isVectorType(type)) return new AssetSpec(true, "VECTOR", parseBounds(node, "absoluteRenderBounds"));
 
         JsonNode fills = node.get("fills");
         if (fills != null && fills.isArray()) {
             for (JsonNode paint : fills) {
                 if (isVisible(paint) && "IMAGE".equals(textOf(paint, "type"))) {
-                    return new AssetSpec(true, "IMAGE");
+                    return new AssetSpec(true, "IMAGE", parseBounds(node, "absoluteRenderBounds"));
                 }
             }
         }
@@ -240,7 +283,11 @@ public class FigmaParserService {
     }
 
     private Bounds parseBounds(JsonNode node) {
-        JsonNode box = node.get("absoluteBoundingBox");
+        return parseBounds(node, "absoluteBoundingBox");
+    }
+
+    private Bounds parseBounds(JsonNode node, String property) {
+        JsonNode box = node.get(property);
         if (box == null || box.isNull()) return Bounds.empty();
         return new Bounds(
                 doubleOf(box, "x"),
@@ -328,6 +375,11 @@ public class FigmaParserService {
         return value != null && !value.isNull() && value.isNumber() ? value.asDouble() : null;
     }
 
+    private Boolean booleanOf(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value != null && value.isBoolean() ? value.asBoolean() : null;
+    }
+
     private String valueOrEmpty(String value) {
         return value == null ? "" : value;
     }
@@ -337,17 +389,18 @@ public class FigmaParserService {
         for (JsonNode paint : paints) {
             if (!"SOLID".equals(textOf(paint, "type")) || !isVisible(paint)) continue;
             JsonNode color = paint.get("color");
-            if (color == null || !color.has("r") || !color.has("g") || !color.has("b")) continue;
-
-            int red = toColorChannel(color.get("r").asDouble());
-            int green = toColorChannel(color.get("g").asDouble());
-            int blue = toColorChannel(color.get("b").asDouble());
-            double alpha = paint.hasNonNull("opacity")
-                    ? paint.get("opacity").asDouble()
-                    : color.path("a").asDouble(1.0);
-            return String.format(java.util.Locale.ROOT, "rgba(%d, %d, %d, %.2f)", red, green, blue, alpha);
+            String cssColor = colorOf(color, doubleOf(paint, "opacity"));
+            if (cssColor != null) return cssColor;
         }
         return null;
+    }
+
+    private String colorOf(JsonNode color, Double opacity) {
+        if (color == null || !color.has("r") || !color.has("g") || !color.has("b")) return null;
+        double alpha = color.path("a").asDouble(1.0) * (opacity == null ? 1.0 : opacity);
+        return String.format(java.util.Locale.ROOT, "rgba(%d, %d, %d, %.2f)",
+                toColorChannel(color.get("r").asDouble()), toColorChannel(color.get("g").asDouble()),
+                toColorChannel(color.get("b").asDouble()), alpha);
     }
 
     private int toColorChannel(double value) {
