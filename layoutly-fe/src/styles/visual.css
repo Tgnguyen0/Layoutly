@@ -1,0 +1,142 @@
+.ly-header-inner { max-width: 1260px; min-height: 82px; }
+.ly-desktop-nav a { position: relative; padding-block: 18px; }
+.ly-desktop-nav a:first-child::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: #ffbf47; }
+.ly-hero { background: #fffefa; }
+.ly-hero-inner { display: grid; grid-template-columns: 45% 55%; gap: 0; min-height: 650px; padding-block: 54px 42px; }
+.ly-hero-copy { width: 100%; max-width: 510px; position: relative; z-index: 2; }
+.ly-hero-copy h1 { font-size: 52px; line-height: 1.16; margin-top: 18px; }
+.ly-hero-copy h1 span { color: #f6ad22; white-space: nowrap; }
+.ly-hero-copy > p { max-width: 390px; margin-top: 20px; font-size: 14px; line-height: 1.8; }
+.ly-hero-actions { gap: 14px; margin-top: 24px; }
+.ly-hero-notes { display: grid; gap: 9px; padding: 0; margin: 22px 0 0; list-style: none; font-size: 12px; }
+.ly-hero-notes li { display: flex; align-items: center; gap: 10px; }
+.ly-hero-notes svg { flex: 0 0 22px; width: 22px; height: 22px; padding: 4px; border-radius: 50%; color: #116377; background: #ddf3f3; }
+.ly-hero-notes small, .ly-auth-benefits small { color: #826221; background: #fff3d6; font-size: 9px; padding: 2px 5px; border-radius: 3px; font-weight: 500; }
+.ly-product-scene { position: relative; width: 100%; aspect-ratio: 1.12; min-width: 0; isolation: isolate; }
+.ly-browser-mock { position: absolute; left: 0; top: 8%; width: 90%; border: 9px solid white; border-radius: 8px; transform: perspective(1200px) rotateY(-8deg) rotate(3deg); box-shadow: 0 18px 36px #17334b20; background: white; }
+.ly-browser-chrome { display: flex; align-items: center; height: 22px; padding-inline: 10px; gap: 6px; background: #183c50; border-radius: 3px 3px 0 0; }
+.ly-browser-chrome i, .ly-code-mock i { width: 5px; height: 5px; background: #c6d5df; border-radius: 50%; }
+.ly-browser-chrome span { color: #c0d6e0; font-size: 7px; margin-left: auto; }
+.ly-sneaker-nav { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #fff; font-size: 9px; }
+.ly-sneaker-nav > strong { font-size: 16px; color: #102638; }
+.ly-sneaker-nav > span { display: flex; align-items: center; gap: 16px; color: #536576; font-size: 7px; }
+.ly-sneaker-hero { background: #fff5e9; display: grid; grid-template-columns: 46% 54%; align-items: center; min-height: 230px; padding: 22px 20px; }
+.ly-sneaker-hero > div { position: relative; z-index: 1; }
+.ly-sneaker-hero small { color: #a87f4e; font-size: 7px; display: block; margin-bottom: 10px; }
+.ly-sneaker-hero strong { font-size: 28px; font-weight: 800; line-height: 1.12; display: block; color: #102638; }
+.ly-sneaker-hero p { color: #60788b; font-size: 8px; margin-top: 10px; }
+.ly-sneaker-hero img { width: 110%; max-width: none; margin-left: -10%; object-fit: contain; filter: drop-shadow(0 12px 8px #48372c18); }
+.ly-shop-label { display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px; margin-top: 15px; background: #ffbf47; border-radius: 20px; color: #102638; font-size: 8px; font-weight: 700; }
+.ly-sneaker-stats { display: flex; justify-content: space-between; padding: 18px 20px; color: #658094; font-size: 7px; }
+.ly-sneaker-stats span { display: grid; gap: 2px; }
+.ly-sneaker-stats b { font-size: 15px; color: #102638; }
+.ly-code-mock { position: absolute; left: 12%; top: 62%; width: 67%; background: #153346; border-radius: 8px; color: #dceaf0; box-shadow: 0 16px 26px #14334725; transform: rotate(-1deg); overflow: hidden; }
+.ly-code-mock > div { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid #ffffff14; }
+.ly-code-mock > div span { font-size: 9px; color: #96aebf; margin-left: auto; }
+.ly-code-mock pre { padding: 12px 18px 18px; font: 10px/1.8 ui-monospace, monospace; margin: 0; overflow: hidden; }
+.ly-code-mock em { color: #efad8d; font-style: normal; }
+.ly-code-mock b { color: #f7c369; font-weight: 400; }
+.ly-code-mock code > span { color: #81c3d3; }
+.ly-phone-mock { position: absolute; right: 0; top: 35%; width: 26%; border: 7px solid #edf1f2; box-shadow: 0 15px 30px #122b3c2a, inset 0 0 0 2px #102638; border-radius: 24px; background: #fff; transform: rotate(7deg); overflow: hidden; }
+.ly-phone-top { padding: 9px 12px 0; display: flex; justify-content: space-between; color: #17334b; font-size: 6px; }
+.ly-phone-top i { width: 30%; height: 4px; border-radius: 4px; background: #17334b; }
+.ly-sneaker-mobile .ly-sneaker-nav { padding: 10px; }
+.ly-sneaker-mobile .ly-sneaker-nav > strong { font-size: 11px; }
+.ly-sneaker-mobile .ly-sneaker-hero { display: flex; flex-direction: column; align-items: start; min-height: 0; padding: 12px 10px 8px; }
+.ly-sneaker-mobile .ly-sneaker-hero strong { font-size: 17px; }
+.ly-sneaker-mobile .ly-sneaker-hero small, .ly-sneaker-mobile .ly-sneaker-hero p { display: none; }
+.ly-sneaker-mobile .ly-sneaker-hero img { width: 100%; margin: 8px 0 0; }
+.ly-sneaker-mobile .ly-shop-label { font-size: 6px; margin-top: 8px; padding: 5px 9px; }
+.ly-sneaker-mobile .ly-sneaker-stats { padding: 12px 9px; font-size: 5px; }
+.ly-sneaker-mobile .ly-sneaker-stats b { font-size: 8px; }
+.ly-figma-badge { position: absolute; left: -4%; top: 46%; display: grid; place-items: center; gap: 3px; padding: 16px; border-radius: 8px; background: white; box-shadow: 0 12px 25px #14334719; color: #148f94; font-size: 8px; }
+.ly-auth-main { background: #fffefa; min-height: 100svh; }
+.ly-auth-layout { min-height: 100svh; grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); max-width: 1100px; padding-block: 52px; gap: 90px; }
+.ly-auth-intro { min-height: 510px; }
+.ly-auth-intro > .ly-brand { margin-bottom: 36px; }
+.ly-auth-intro h1 { font-size: 31px; line-height: 1.25; margin-top: 14px; max-width: 430px; }
+.ly-auth-intro > p { max-width: 350px; font-size: 14px; line-height: 1.8; margin-top: 14px; }
+.ly-auth-benefits { gap: 24px; margin-top: 32px; }
+.ly-auth-benefits li { align-items: center; gap: 14px; }
+.ly-auth-benefits li > svg { flex: 0 0 42px; width: 42px; height: 42px; padding: 12px; border-radius: 50%; color: #a86915; background: #fff0d4; }
+.ly-auth-benefits strong { display: block; color: #102638; font-size: 13px; font-weight: 600; }
+.ly-auth-benefits span { display: block; font-size: 11px; margin-top: 4px; }
+.ly-product-compact { width: 165px; position: absolute; right: -15px; bottom: 150px; opacity: .85; }
+.ly-product-compact .ly-phone-mock, .ly-product-compact .ly-code-mock, .ly-product-compact .ly-figma-badge { display: none; }
+.ly-product-compact .ly-browser-mock { transform: rotate(2deg); top: 0; width: 100%; border-width: 5px; }
+.ly-product-compact .ly-sneaker-nav { padding: 6px; }
+.ly-product-compact .ly-sneaker-nav > strong { font-size: 9px; }
+.ly-product-compact .ly-sneaker-nav > span { display: none; }
+.ly-product-compact .ly-sneaker-hero { display: block; padding: 8px; min-height: 0; }
+.ly-product-compact .ly-sneaker-hero > div { display: none; }
+.ly-product-compact .ly-sneaker-hero img { width: 100%; margin: 0; }
+.ly-product-compact .ly-sneaker-stats { padding: 8px; font-size: 5px; }
+.ly-product-compact .ly-sneaker-stats b { font-size: 8px; }
+.ly-auth-panel { padding: 30px 32px; box-shadow: 0 14px 34px #18374b08; }
+.ly-auth-main .ly-submit:disabled { background: #36576b; color: #fff; opacity: 1; }
+.ly-auth-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.ly-input-wrap { min-height: 46px; }
+.ly-field { margin-bottom: 24px; }
+.ly-auth-tabs { margin-bottom: 28px; }
+.ly-auth-intro > .ly-text-link { position: relative; margin-top: 32px; font-size: 12px; }
+@media (max-width: 1100px) {
+  .ly-hero-inner { min-height: 615px; grid-template-columns: 48% 52%; }
+  .ly-hero-copy h1 { font-size: 44px; }
+  .ly-sneaker-hero { min-height: 185px; }
+  .ly-sneaker-hero strong { font-size: 23px; }
+  .ly-auth-layout { gap: 40px; }
+  .ly-product-compact { width: 120px; right: 0; bottom: 125px; }
+}
+@media (max-width: 900px) {
+  .ly-hero-inner { grid-template-columns: 1fr; min-height: auto; padding-block: 36px; gap: 24px; }
+  .ly-hero-copy { max-width: 520px; }
+  .ly-product-scene { max-width: 570px; margin-inline: auto; }
+  .ly-auth-layout { grid-template-columns: 1fr; max-width: 560px; gap: 28px; padding-block: 32px; }
+  .ly-auth-intro { min-height: 0; }
+  .ly-auth-intro > .ly-brand { margin-bottom: 26px; }
+  .ly-auth-benefits { display: none; }
+  .ly-product-compact { display: block; position: relative; width: 125px; margin: 10px 0 10px auto; height: 165px; bottom: auto; }
+  .ly-auth-intro > .ly-text-link { margin-top: 12px; }
+  .ly-sneaker-hero { min-height: 220px; }
+}
+@media (max-width: 600px) {
+  .ly-header-inner { min-height: 72px; }
+  .ly-hero-inner { padding-block: 24px 20px; gap: 12px; }
+  .ly-hero-copy h1 { font-size: 32px; margin-top: 12px; }
+  .ly-hero-copy > p { font-size: 12px; line-height: 1.7; margin-top: 14px; }
+  .ly-hero-actions { margin-top: 18px; }
+  .ly-hero-actions .ly-button { min-height: 40px; }
+  .ly-hero-copy .ly-backend-status { display: none; }
+  .ly-hero-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin-top: 18px; font-size: 10px; }
+  .ly-hero-notes li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 5px; }
+  .ly-hero-notes svg { width: 18px; height: 18px; }
+  .ly-hero-notes small { grid-column: 2; justify-self: start; }
+  .ly-hero-actions .ly-button { font-size: 12px; padding-inline: 14px; }
+  .ly-hero .ly-product-scene { max-width: 245px; }
+  .ly-product-scene { margin-top: 8px; aspect-ratio: 1; }
+  .ly-browser-mock { border-width: 5px; left: 2%; width: 90%; }
+  .ly-sneaker-nav { padding: 10px; }
+  .ly-sneaker-nav > strong { font-size: 12px; }
+  .ly-sneaker-nav > span { font-size: 5px; gap: 4px; }
+  .ly-sneaker-hero { min-height: 110px; padding: 10px; }
+  .ly-sneaker-hero strong { font-size: 16px; }
+  .ly-sneaker-hero small { font-size: 5px; margin-bottom: 6px; }
+  .ly-sneaker-hero p { font-size: 6px; }
+  .ly-shop-label { padding: 5px 9px; font-size: 6px; margin-top: 9px; }
+  .ly-sneaker-stats { padding: 10px; font-size: 5px; }
+  .ly-sneaker-stats b { font-size: 10px; }
+  .ly-code-mock pre { font-size: 6px; padding: 8px 10px; }
+  .ly-code-mock > div { padding: 8px; }
+  .ly-phone-mock { border-width: 4px; border-radius: 14px; }
+  .ly-sneaker-mobile .ly-sneaker-nav { padding: 7px; }
+  .ly-sneaker-mobile .ly-sneaker-nav > strong { font-size: 8px; }
+  .ly-sneaker-mobile .ly-sneaker-hero { padding: 7px; }
+  .ly-sneaker-mobile .ly-sneaker-hero strong { font-size: 11px; }
+  .ly-sneaker-mobile .ly-sneaker-stats { display: none; }
+  .ly-figma-badge { left: 0; padding: 10px; }
+  .ly-figma-badge svg { width: 24px; height: 24px; }
+  .ly-auth-intro h1 { font-size: 27px; }
+  .ly-auth-panel { padding: 24px; }
+  .ly-product-compact { aspect-ratio: auto; margin-top: 8px; }
+}
+@media (max-width: 360px) { .ly-hero-copy h1 { font-size: 28px; } .ly-auth-panel { padding: 20px; } }

@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,18 +60,30 @@ public class FigmaSnapshotService {
     }
 
     public Mono<FigmaSnapshot> importSnapshot(String fileKey, String token) {
+        return importSnapshot(fileKey, null, token);
+    }
+
+    public Mono<FigmaSnapshot> importSnapshot(String fileKey, String nodeId, String token) {
         String normalizedKey = normalizeFileKey(fileKey);
-        Optional<FigmaSnapshot> cached = findByFileKey(normalizedKey);
+        String normalizedNodeId = normalizeNodeId(nodeId);
+        String cacheKey = importKey(normalizedKey, normalizedNodeId);
+        Optional<FigmaSnapshot> cached = normalizedNodeId == null
+                ? findByFileKey(normalizedKey)
+                : findByImportKey(cacheKey);
         if (cached.isPresent()) {
             rememberToken(cached.get().getSnapshotId(), token);
             return Mono.just(cached.get());
         }
 
-        return importFlights.computeIfAbsent(normalizedKey, key ->
-                figmaService.getFile(key, token)
-                        .map(rawJson -> createSnapshot(UUID.randomUUID().toString(), key, rawJson))
+        return importFlights.computeIfAbsent(cacheKey, key ->
+                figmaService.getFile(normalizedKey, token)
+                        .map(rawJson -> createSnapshot(
+                                UUID.randomUUID().toString(),
+                                normalizedKey,
+                                normalizedNodeId,
+                                rawJson))
                         .doOnNext(snapshot -> storeSnapshot(snapshot, token))
-                        .doFinally(signal -> importFlights.remove(key))
+                        .doFinally(signal -> importFlights.remove(cacheKey))
                         .cache());
     }
 
@@ -89,7 +102,7 @@ public class FigmaSnapshotService {
 
         return refreshFlights.computeIfAbsent(snapshotId, id ->
                 figmaService.fetchFileFresh(current.getFileKey(), effectiveToken)
-                        .map(rawJson -> createSnapshot(id, current.getFileKey(), rawJson))
+                        .map(rawJson -> createSnapshot(id, current.getFileKey(), current.getRootNodeId(), rawJson))
                         .doOnNext(snapshot -> storeSnapshot(snapshot, effectiveToken))
                         .doFinally(signal -> refreshFlights.remove(id))
                         .cache());
@@ -104,7 +117,7 @@ public class FigmaSnapshotService {
                 .orElseThrow(() -> new IllegalArgumentException("Khong tim thay snapshot: " + snapshotId));
         snapshotsById.put(snapshotId, loaded);
         if (loaded.getSource() == ImportSource.FIGMA_REST && hasText(loaded.getFileKey())) {
-            snapshotIdByFileKey.put(loaded.getFileKey(), loaded.getSnapshotId());
+            rememberSnapshotKey(loaded);
         }
         return loaded;
     }
@@ -113,7 +126,9 @@ public class FigmaSnapshotService {
         String normalizedKey = normalizeFileKey(fileKey);
         String snapshotId = snapshotIdByFileKey.get(normalizedKey);
         if (snapshotId != null) return Optional.of(requireSnapshot(snapshotId));
-        return storageService.findLatestRestSnapshotId(normalizedKey).map(this::requireSnapshot);
+        return storageService.findLatestRestSnapshotId(normalizedKey)
+                .map(this::requireSnapshot)
+                .filter(this::isFullSnapshot);
     }
 
     public Mono<AssetExportService.AssetBundle> getAssets(String snapshotId) {
@@ -153,6 +168,7 @@ public class FigmaSnapshotService {
                                 tokenBySnapshotId.get(snapshotId),
                                 previewRoot)
                         .doOnNext(urls -> previewUrlsByKey.put(key, Map.copyOf(urls)))
+                        .onErrorResume(err -> Mono.just(Map.of()))
                         .doFinally(signal -> previewUrlFlights.remove(key))
                         .cache());
     }
@@ -173,9 +189,17 @@ public class FigmaSnapshotService {
     }
 
     private FigmaSnapshot createSnapshot(String snapshotId, String fileKey, String rawJson) {
+        return createSnapshot(snapshotId, fileKey, null, rawJson);
+    }
+
+    private FigmaSnapshot createSnapshot(String snapshotId, String fileKey, String nodeId, String rawJson) {
         try {
             JsonNode response = objectMapper.readTree(rawJson);
             DesignNode designIr = parserService.parseDesignTree(rawJson);
+            DesignNode rootNode = hasText(nodeId) ? findNodeById(designIr, nodeId) : designIr;
+            if (rootNode == null) {
+                throw new IllegalArgumentException("Khong tim thay node-id trong file Figma: " + nodeId);
+            }
             List<String> imageNodeIds = new ArrayList<>();
             collectImageNodeIds(designIr, imageNodeIds);
             return new FigmaSnapshot(
@@ -187,9 +211,9 @@ public class FigmaSnapshotService {
                     textOrFallback(response, "lastModified", null),
                     Instant.now(),
                     null,
-                    designIr.getId(),
-                    designIr.getName(),
-                    designIr.getType(),
+                    rootNode.getId(),
+                    rootNode.getName(),
+                    rootNode.getType(),
                     null,
                     List.of(),
                     rawJson,
@@ -208,7 +232,7 @@ public class FigmaSnapshotService {
         clearPreviewCache(snapshot.getSnapshotId());
         snapshotsById.put(snapshot.getSnapshotId(), snapshot);
         if (snapshot.getSource() == ImportSource.FIGMA_REST && hasText(snapshot.getFileKey())) {
-            snapshotIdByFileKey.put(snapshot.getFileKey(), snapshot.getSnapshotId());
+            rememberSnapshotKey(snapshot);
         }
         rememberToken(snapshot.getSnapshotId(), token);
         storageService.save(snapshot, referenceImage);
@@ -256,6 +280,39 @@ public class FigmaSnapshotService {
         previewUrlFlights.keySet().removeIf(key -> key.startsWith(prefix));
     }
 
+    private Optional<FigmaSnapshot> findByImportKey(String importKey) {
+        String snapshotId = snapshotIdByFileKey.get(importKey);
+        return snapshotId == null ? Optional.empty() : Optional.of(requireSnapshot(snapshotId));
+    }
+
+    private void rememberSnapshotKey(FigmaSnapshot snapshot) {
+        String normalizedKey = normalizeFileKey(snapshot.getFileKey());
+        snapshotIdByFileKey.put(importKey(normalizedKey, snapshot.getRootNodeId()), snapshot.getSnapshotId());
+        if (isFullSnapshot(snapshot)) snapshotIdByFileKey.put(normalizedKey, snapshot.getSnapshotId());
+    }
+
+    private boolean isFullSnapshot(FigmaSnapshot snapshot) {
+        return snapshot != null
+                && snapshot.getDesignIr() != null
+                && Objects.equals(snapshot.getRootNodeId(), snapshot.getDesignIr().getId());
+    }
+
+    private DesignNode findNodeById(DesignNode node, String nodeId) {
+        if (node == null || !hasText(nodeId)) return null;
+        if (nodeId.equals(node.getId())) return node;
+        if (node.getChildren() == null) return null;
+        for (DesignNode child : node.getChildren()) {
+            DesignNode found = findNodeById(child, nodeId);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private String importKey(String fileKey, String nodeId) {
+        String normalizedNodeId = normalizeNodeId(nodeId);
+        return normalizedNodeId == null ? fileKey : fileKey + "::" + normalizedNodeId;
+    }
+
     private void collectImageNodeIds(DesignNode node, List<String> result) {
         if (node == null) return;
         if (node.getAsset() != null && node.getAsset().exportAsImage() && hasText(node.getId())) {
@@ -276,6 +333,15 @@ public class FigmaSnapshotService {
         String normalized = fileKey.trim();
         if (!normalized.matches("[a-zA-Z0-9_-]+")) {
             throw new IllegalArgumentException("File Key Figma khong hop le.");
+        }
+        return normalized;
+    }
+
+    private String normalizeNodeId(String nodeId) {
+        if (!hasText(nodeId)) return null;
+        String normalized = nodeId.trim().replace('-', ':');
+        if (!normalized.matches("[a-zA-Z0-9:_]+")) {
+            throw new IllegalArgumentException("Node ID Figma khong hop le.");
         }
         return normalized;
     }

@@ -13,6 +13,42 @@ class FigmaParserServiceTest {
     private final FigmaParserService parser = new FigmaParserService();
 
     @Test
+    void rotatesIndividualCornersWithTheRestBoundingBox() throws Exception {
+        DesignNode halfTurn = parser.parseDesignTree("""
+                {"document":{"id":"a","type":"RECTANGLE","rotation":-3.1415925661670165,
+                 "rectangleCornerRadii":[0,0,100,0]}}
+                """);
+        DesignNode quarterTurn = parser.parseDesignTree("""
+                {"document":{"id":"b","type":"RECTANGLE","rotation":1.5707963148700159,
+                 "rectangleCornerRadii":[0,0,100,0]}}
+                """);
+        assertThat(halfTurn.getStyle().getCornerRadii()).containsExactly(100.0, 0.0, 0.0, 0.0);
+        assertThat(quarterTurn.getStyle().getCornerRadii()).containsExactly(0.0, 0.0, 0.0, 100.0);
+    }
+
+    @Test
+    void preservesVisualPropertiesAndPaintOpacity() throws Exception {
+        DesignNode node = parser.parseDesignTree("""
+                {"document":{"id":"card","type":"RECTANGLE","visible":false,"clipsContent":false,
+                 "rectangleCornerRadii":[0,100,0,100],
+                 "fills":[{"type":"SOLID","opacity":0.5,"color":{"r":1,"g":0,"b":0,"a":0.5}}],
+                 "style":{"textAlignHorizontal":"RIGHT","textAutoResize":"HEIGHT","fontStyle":"Italic"},
+                 "effects":[{"type":"INNER_SHADOW","offset":{"x":2,"y":3},"radius":4,"spread":5,
+                             "color":{"r":0,"g":0,"b":0,"a":0.2}},
+                            {"type":"DROP_SHADOW","visible":false}]}}
+                """);
+        assertThat(node.getStyle().getCornerRadii()).containsExactly(0.0, 100.0, 0.0, 100.0);
+        assertThat(node.getStyle().getBackgroundColor()).isEqualTo("rgba(255, 0, 0, 0.25)");
+        assertThat(node.getStyle().getTextAlign()).isEqualTo("RIGHT");
+        assertThat(node.getStyle().getTextAutoResize()).isEqualTo("HEIGHT");
+        assertThat(node.getStyle().getFontStyle()).isEqualTo("Italic");
+        assertThat(node.getStyle().getVisible()).isFalse();
+        assertThat(node.getStyle().getClipsContent()).isFalse();
+        assertThat(node.getStyle().getShadows()).hasSize(1);
+        assertThat(node.getStyle().getShadows().get(0).inset()).isTrue();
+    }
+
+    @Test
     void parsesHorizontalAutoLayoutAndChildSizing() throws Exception {
         DesignNode root = parser.parseDesignTree("""
                 {

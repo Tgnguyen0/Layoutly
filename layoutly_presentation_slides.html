@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slide Báo Cáo - Figma to Code & Layoutly Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-card: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #4ade80;
+      --accent-rose: #fb7185;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slide {
+      position: absolute;
+      width: 90%;
+      max-width: 1200px;
+      height: 85%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 40px 50px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(20px) scale(0.98);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .slide-header {
+      margin-bottom: 25px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 15px;
+    }
+
+    .slide-tag {
+      display: inline-block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-blue);
+      margin-bottom: 8px;
+    }
+
+    h1.slide-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 0%, var(--accent-blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text-main);
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      height: 60px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      z-index: 100;
+    }
+
+    .nav-btn {
+      background: #334155;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: var(--accent-blue);
+      color: #0f172a;
+    }
+
+    .slide-counter {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Custom Cards & Tables */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card h3 {
+      color: var(--accent-blue);
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+    }
+
+    .card-purple h3 { color: var(--accent-purple); }
+    .card-green h3 { color: var(--accent-green); }
+    .card-rose h3 { color: var(--accent-rose); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: #0f172a;
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0f172a;
+      color: var(--accent-purple);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .badge-success { background: rgba(74, 222, 128, 0.15); color: var(--accent-green); }
+    .badge-info { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
+
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="slide-container">
+
+  <!-- SLIDE 1 -->
+  <div class="slide active">
+    <div class="slide-header">
+      <span class="slide-tag">Đề tài NCKH / Đồ án Tốt nghiệp</span>
+      <h1 class="slide-title">BÁO CÁO NGHĨEN CỨU CÁC GIẢI PHÁP FIGMA-TO-CODE MÃ NGUỒN MỞ</h1>
+    </div>
+    <div class="slide-body" style="justify-content: center; align-items: center; text-align: center;">
+      <h2 style="color: var(--accent-blue); font-size: 1.8rem; margin-bottom: 15px;">Phân Tích Kiến Trúc, So Sánh Ưu/Nhược Điểm & Đề Xuất Cho Đề Tài LAYOUTLY</h2>
+      <p style="max-width: 800px; color: var(--text-muted); font-size: 1.1rem; margin-bottom: 30px;">
+        Đánh giá chuyên sâu 4 dự án mã nguồn mở uy tín trên GitHub (FigmaToCode, Grida, Figma to React, Figma Context MCP) qua thực nghiệm build/test trực tiếp.
+      </p>
+      <div class="grid-2" style="width: 100%; max-width: 700px;">
+        <div class="card card-blue">
+          <h3>📌 Mục tiêu Báo cáo</h3>
+          <p style="font-size: 0.95rem; color: var(--text-muted);">Tối ưu hóa kiến trúc Backend Spring Boot + React Frontend + Figma Plugin Bridge cho hệ thống Layoutly.</p>
+        </div>
+        <div class="card card-purple">
+          <h3>🧪 Phương pháp Nghiên cứu</h3>
+          <p style="font-size: 0.95rem; color: var(--text-muted);">Thực nghiệm clone, cài đặt môi trường, chạy unit test, build bundle & phân tích thuật toán mã nguồn.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 2 / 10</span>
+      <h1 class="slide-title">TỔNG QUAN 4 HƯỚNG TIẾP CẬN MÃ NGUỒN MỞ</h1>
+    </div>
+    <div class="slide-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Dự án GitHub</th>
+            <th>Công nghệ chính</th>
+            <th>Hướng tiếp cận kỹ thuật</th>
+            <th>Trạng thái Thử nghiệm</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>1. FigmaToCode</b><br><code>bernaferrari/FigmaToCode</code></td>
+            <td>TypeScript, React 19, Turbo</td>
+            <td>Client-side Plugin Sandbox, mã hóa Deterministic, xuất Zip Starter Project</td>
+            <td><span class="badge badge-success">100% Vitest Passed</span></td>
+          </tr>
+          <tr>
+            <td><b>2. Grida Design Engine</b><br><code>gridaco/grida</code></td>
+            <td>TypeScript, Rust, Kiwi Binary</td>
+            <td>Multi-tier Design Engine, Dữ liệu trung gian IR (Intermediate Representation)</td>
+            <td><span class="badge badge-info">Parsed & Checked Out</span></td>
+          </tr>
+          <tr>
+            <td><b>3. Figma to React</b><br><code>kazuyaseki/figma-to-react</code></td>
+            <td>React, TS, Webpack 4</td>
+            <td>Minimalist Figma Plugin, Mô hình <code>buildTagTree</code> tách biệt CSS</td>
+            <td><span class="badge badge-success">9/9 Jest Passed, Build OK</span></td>
+          </tr>
+          <tr>
+            <td><b>4. Figma Context MCP</b><br><code>GLips/Figma-Context-MCP</code></td>
+            <td>TypeScript, MCP Protocol</td>
+            <td>Model Context Protocol Server, cung cấp Visual Specs JSON cho AI (LLM)</td>
+            <td><span class="badge badge-success">249/250 Vitest, Build OK</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SLIDE 3 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 3 / 10</span>
+      <h1 class="slide-title">1. FIGMA TO CODE (DETERMINISTIC PLUGIN)</h1>
+    </div>
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card">
+          <h3>⚙️ Thuật toán Node Normalization</h3>
+          <ul>
+            <li>Chuyển cây <code>SceneNode</code> của Figma sang cấu trúc <code>AltNode</code> tinh gọn.</li>
+            <li>Tự động phát hiện & xóa bỏ các Frame thừa không cần thiết.</li>
+            <li>Tự động gom nhóm thuộc tính <code>padding</code> (top/bottom/left/right) và <code>gap</code>.</li>
+            <li>Tự động gom màu trùng thành CSS Variables & render SVG Icon fallback.</li>
+          </ul>
+        </div>
+        <div class="card card-purple">
+          <h3>📦 Xuất Starter Project (.ZIP)</h3>
+          <ul>
+            <li>Chạy thuần túy 100% trong Sandbox của Figma Plugin (không cần server ngoài).</li>
+            <li>Tích hợp thư viện <code>fflate</code> nén mã nguồn thành file <code>.zip</code>.</li>
+            <li>Hỗ trợ đóng gói dự án mẫu hoàn chỉnh: HTML Static, Tailwind CSS, React, Flutter, SwiftUI.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 4 / 10</span>
+      <h1 class="slide-title">2. GRIDA DESIGN TO CODE (MULTI-TIER ENGINE)</h1>
+    </div>
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card card-green">
+          <h3>🧬 Giải mã nhị phân Kiwi (.fig)</h3>
+          <ul>
+            <li>Tích hợp bộ parser nhị phân <code>fig-kiwi</code>.</li>
+            <li>Cho phép đọc trực tiếp file thiết kế Figma <code>.fig</code> / <code>.deck</code> offline mà không bắt buộc phải gọi Figma REST API.</li>
+          </ul>
+        </div>
+        <div class="card card-purple">
+          <h3>📐 Thuật toán Suy luận Flexbox / Grid</h3>
+          <ul>
+            <li>Giải quyết triệt để bài toán các phần tử xếp vị trí tuyệt đối (Absolute positioning).</li>
+            <li>Phân tích tọa độ hình học <code>(x, y, w, h)</code> để suy luận phân nhóm phần tử thành các hàng (Row), cột (Column) hoặc Grid đáp ứng.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 5 / 10</span>
+      <h1 class="slide-title">3. FIGMA TO REACT (TAG TREE ARCHITECTURE)</h1>
+    </div>
+    <div class="slide-body">
+      <div class="card">
+        <h3>🌳 Kiến trúc Tag Tree (`buildTagTree.ts`)</h3>
+        <p style="color: var(--text-muted); margin-bottom: 12px;">Mẫu chuẩn mực nhất cho Figma Plugin: Bóc tách node Figma thành cây đối tượng Tag trung gian trước khi render JSX.</p>
+        <pre style="background: #0f172a; padding: 15px; border-radius: 8px; font-family: 'JetBrains Mono'; color: var(--accent-green); font-size: 0.85rem;">
+export type Tag = {
+  name: string;
+  isText: boolean;
+  textCharacters: string | null;
+  isImg: boolean;
+  properties: Property[];
+  css: CSSData;
+  children: Tag[];
+  node: SceneNode;
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 6 / 10</span>
+      <h1 class="slide-title">4. FIGMA CONTEXT MCP (AI-NATIVE PROTOCOL)</h1>
+    </div>
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card card-rose">
+          <h3>🤖 Model Context Protocol (MCP)</h3>
+          <ul>
+            <li>Không sinh code cứng mà hoạt động như một Server cầu nối dữ liệu cho các Trợ lý AI (Claude, Cursor, Antigravity).</li>
+            <li>Đọc node từ Figma REST API và biến đổi thành Visual Specs JSON tối ưu dung lượng token.</li>
+          </ul>
+        </div>
+        <div class="card card-blue">
+          <h3>🛠️ Công cụ MCP cung cấp</h3>
+          <ul>
+            <li><code>get_figma_file</code>: Lấy thông số tổng quan file.</li>
+            <li><code>get_figma_node</code>: Lấy spec chi tiết từng Component.</li>
+            <li><code>download_figma_images</code>: Tự động tải assets ảnh.</li>
+            <li>Để AI tự do biên dịch ra code theo đúng ngữ cảnh dự án.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 7 / 10</span>
+      <h1 class="slide-title">BẢNG SO SÁNH ƯU & NHƯỢC ĐIỂM (PROS & CONS)</h1>
+    </div>
+    <div class="slide-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Dự án</th>
+            <th>Ưu điểm (Pros)</th>
+            <th>Nhược điểm (Cons)</th>
+            <th>Khai thác cho Layoutly</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>FigmaToCode</b></td>
+            <td>• Chạy 100% offline sandbox.<br>• Thuật toán gom padding/gap cực sạch.<br>• Xuất file ZIP dự án mẫu.</td>
+            <td>• Phụ thuộc vào thiết kế Auto Layout của Figma.</td>
+            <td>Học thuật toán gom nhóm CSS & xuất Starter Project ZIP.</td>
+          </tr>
+          <tr>
+            <td><b>Grida</b></td>
+            <td>• Xử lý tốt layout vị trí tuyệt đối (Absolute).<br>• Đọc được file nhị phân <code>.fig</code>.</td>
+            <td>• Kiến trúc phức tạp, mã nguồn rất lớn.</td>
+            <td>Học thiết kế lớp Dữ liệu Trung gian IR (Intermediate Representation).</td>
+          </tr>
+          <tr>
+            <td><b>Figma to React</b></td>
+            <td>• Code cực kỳ ngắn gọn, dễ hiểu.<br>• Tách biệt rõ giữa Tag Tree & CSS rules.</td>
+            <td>• Chưa hỗ trợ các ca layout quá phức tạp.</td>
+            <td>Làm mẫu thiết kế cho Figma Plugin Bridge (<code>layoutly-figma-bridge</code>).</td>
+          </tr>
+          <tr>
+            <td><b>Figma Context MCP</b></td>
+            <td>• Đón đầu xu hướng AI Assistant.<br>• Code sinh ra linh hoạt theo prompt.</td>
+            <td>• Phụ thuộc vào AI LLM (chi phí API).</td>
+            <td>Định hướng mở rộng tính năng AI Assistant cho Layoutly.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SLIDE 8 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 8 / 10</span>
+      <h1 class="slide-title">RÚT RA BÀI HỌC KỸ THUẬT CHO LAYOUTLY</h1>
+    </div>
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card card-blue">
+          <h3>1. Tầng Backend Parser (`FigmaParserService.java`)</h3>
+          <p style="color: var(--text-muted);">Áp dụng thuật toán <code>altNodes</code> của FigmaToCode: Thêm bước tiền xử lý lọc node <code>visible=false</code>, gom nhóm padding trùng lặp và phát hiện Icon SVG tự động.</p>
+        </div>
+        <div class="card card-purple">
+          <h3>2. Tầng Cấu Trúc Trung Gian (Layoutly IR Schema)</h3>
+          <p style="color: var(--text-muted);">Học tập mô hình <code>Tag Tree</code> và <code>Grida IR</code>: Tạo lớp DTO <code>LayoutTagDTO</code> trong Spring Boot đứng giữa Parser Service và Code Generator Service.</p>
+        </div>
+        <div class="card card-green">
+          <h3>3. Tầng Figma Plugin (`layoutly-figma-bridge`)</h3>
+          <p style="color: var(--text-muted);">Áp dụng mô hình truyền dữ liệu Message Passing tinh gọn từ Figma to React để trích xuất SceneNode từ Canvas nhanh chóng.</p>
+        </div>
+        <div class="card card-rose">
+          <h3>4. Đóng gói Dự án Starter (`ExportService.java`)</h3>
+          <p style="color: var(--text-muted);">Áp dụng cơ chế nén file ZIP từ FigmaToCode để đóng gói toàn bộ mã nguồn React/Vite/HTML cho người dùng tải về.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 9 / 10</span>
+      <h1 class="slide-title">KIẾN TRÚC ĐỀ XUẤT CHO HỆ THỐNG LAYOUTLY</h1>
+    </div>
+    <div class="slide-body" style="justify-content: center;">
+      <div class="card card-purple" style="text-align: center; padding: 30px;">
+        <h3 style="font-size: 1.4rem; margin-bottom: 20px;">🔄 LUỒNG XỬ LÝ DỮ LIỆU CỦA HỆ THỐNG LAYOUTLY</h3>
+        <div style="display: flex; justify-content: space-around; align-items: center; gap: 15px; flex-wrap: wrap;">
+          <div style="background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid var(--accent-blue); flex: 1; min-width: 200px;">
+            <b style="color: var(--accent-blue);">1. Figma Plugin Bridge</b>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Trích xuất SceneNode thô</p>
+          </div>
+          <span style="font-size: 1.5rem; color: var(--text-muted);">➔</span>
+          <div style="background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid var(--accent-purple); flex: 1; min-width: 200px;">
+            <b style="color: var(--accent-purple);">2. Spring Boot Backend</b>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">AltNode Parser & IR DTO</p>
+          </div>
+          <span style="font-size: 1.5rem; color: var(--text-muted);">➔</span>
+          <div style="background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid var(--accent-green); flex: 1; min-width: 200px;">
+            <b style="color: var(--accent-green);">3. Code Generators</b>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">HTML / CSS / React JSX</p>
+          </div>
+          <span style="font-size: 1.5rem; color: var(--text-muted);">➔</span>
+          <div style="background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid var(--accent-rose); flex: 1; min-width: 200px;">
+            <b style="color: var(--accent-rose);">4. React FE / ZIP Export</b>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Live Preview & Download</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10 -->
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-tag">Slide 10 / 10</span>
+      <h1 class="slide-title">KẾT LUẬN & KẾ HOẠCH THỰC THI (NEXT STEPS)</h1>
+    </div>
+    <div class="slide-body">
+      <div class="card card-green">
+        <h3>📌 Kết luận Chuyên môn</h3>
+        <p style="color: var(--text-muted);">Không có thuật toán đơn lẻ nào xử lý hoàn hảo 100% bài toán Figma-to-Code. Mô hình tối ưu nhất cho <b>Layoutly</b> là sự kết hợp giữa: Thuật toán làm sạch node của <i>FigmaToCode</i> + Kiến trúc IR trung gian của <i>Grida</i> + Cấu trúc Plugin gọn nhẹ của <i>Figma to React</i>.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>🗓️ Kế hoạch Hoàn thiện Layoutly</h3>
+          <ul>
+            <li><b>Tuần 1</b>: Nâng cấp <code>FigmaParserService.java</code> theo cơ chế <code>altNodes</code>.</li>
+            <li><b>Tuần 2</b>: Chuẩn hóa lớp <code>LayoutTagDTO</code> (IR Schema) trong Backend.</li>
+            <li><b>Tuần 3</b>: Hoàn thiện <code>ReactGeneratorService.java</code> xuất JSX & CSS Modules.</li>
+            <li><b>Tuần 4</b>: Kiểm thử end-to-end & đóng gói báo cáo bảo vệ đề tài.</li>
+          </ul>
+        </div>
+        <div class="card card-blue" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+          <h2 style="color: var(--accent-blue); font-size: 1.8rem; margin-bottom: 10px;">CẢM ƠN THẦY CÔ & HỘI ĐỒNG!</h2>
+          <p style="color: var(--text-muted);">Sẵn sàng nhận câu hỏi phản biện & đóng góp ý kiến.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation Bar -->
+<div class="controls-bar">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">❮ Slide Trước</button>
+  <div class="slide-counter" id="slideCounter">Slide 1 / 10</div>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">Slide Sau ❯</button>
+</div>
+
+<script>
+  let currentSlide = 0;
+  const slides = document.querySelectorAll('.slide');
+  const slideCounter = document.getElementById('slideCounter');
+
+  function updateSlides() {
+    slides.forEach((slide, index) => {
+      slide.classList.toggle('active', index === currentSlide);
+    });
+    slideCounter.textContent = `Slide ${currentSlide + 1} / ${slides.length}`;
+  }
+
+  function changeSlide(direction) {
+    currentSlide += direction;
+    if (currentSlide < 0) currentSlide = 0;
+    if (currentSlide >= slides.length) currentSlide = slides.length - 1;
+    updateSlides();
+  }
+
+  // Keyboard Navigation (Arrow Keys & Space)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'Space') {
+      changeSlide(1);
+    } else if (e.key === 'ArrowLeft') {
+      changeSlide(-1);
+    }
+  });
+
+  updateSlides();
+</script>
+</body>
+</html>

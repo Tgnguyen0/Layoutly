@@ -108,10 +108,10 @@ export async function downloadZipExport(token, fileKey, type = 'AUTO') {
 
 export const snapshotApi = {
   bridgeStatus: () => request('/bridge/status'),
-  importFigma: (token, fileKey) => request('/figma/import', {
+  importFigma: (token, target) => request('/figma/import', {
     token,
     method: 'POST',
-    body: { fileKey },
+    body: typeof target === 'string' ? { fileKey: target } : target,
   }),
   refresh: (token, snapshotId) => request(`/snapshots/${snapshotId}/refresh`, {
     token,
@@ -127,6 +127,12 @@ export const snapshotApi = {
     method: 'POST',
     body: { caseName },
   }),
+  aiStatus: (snapshotId) => request(`/snapshots/${snapshotId}/ai/status`),
+  aiChat: (snapshotId, data) => request(`/snapshots/${snapshotId}/ai/chat`, { method: 'POST', body: data }),
+  aiRevisions: (snapshotId) => request(`/snapshots/${snapshotId}/ai/revisions`),
+  aiDiff: (snapshotId, revisionId, framework = 'REACT') => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/diff?framework=${framework}`),
+  aiAccept: (snapshotId, revisionId, framework = 'REACT') => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/accept?framework=${framework}`, { method: 'POST' }),
+  aiReject: (snapshotId, revisionId) => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/reject`, { method: 'POST' }),
 }
 
 export async function downloadReactZipExport(token, fileKey) {
@@ -166,4 +172,17 @@ export async function downloadSnapshotExport(snapshotId, format, type = 'AUTO') 
 
   const blob = await res.blob()
   triggerDownload(blob, `layoutly-${format.toLowerCase()}-export.zip`)
+}
+
+export async function downloadAiExport(snapshotId, revisionId, framework = 'REACT') {
+  const query = new URLSearchParams()
+  if (revisionId) query.set('revisionId', revisionId)
+  if (framework) query.set('framework', framework)
+  const res = await fetch(`${BASE}/snapshots/${snapshotId}/ai/export?${query.toString()}`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  triggerDownload(blob, `layoutly-ai-${framework.toLowerCase()}-export.zip`)
 }

@@ -58,6 +58,7 @@ async function exportSelection(scope: 'SELECTION' | 'PAGE', requestId?: number) 
 
     figma.ui.postMessage({
       type: 'export-data',
+      requestId,
       meta: {
         source: 'FIGMA_PLUGIN',
         fileKey: null,
@@ -74,7 +75,6 @@ async function exportSelection(scope: 'SELECTION' | 'PAGE', requestId?: number) 
       assets,
       reference,
     });
-    figma.ui.postMessage({ type: 'export-data', requestId, meta: { /* giữ nguyên */ }, json, assets, reference });
   } catch (e) {
     figma.ui.postMessage({ type: 'export-error', requestId, message: String(e) });
   }
