@@ -30,6 +30,16 @@ import java.util.zip.ZipOutputStream;
 @RestController
 @RequestMapping("/api/figma")
 public class FigmaController {
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.tgnguyen.layoutlybe.service.SavedProjectService savedProjects;
+
+    private Mono<com.tgnguyen.layoutlybe.model.snapshot.FigmaSnapshot> ownedImport(String fileKey, String token) {
+        if (savedProjects == null) return snapshotService.getOrImportByFileKey(fileKey, token);
+        var owner = com.tgnguyen.layoutlybe.security.CurrentUser.id();
+        return snapshotService.importPrivateSnapshot(fileKey, null, token)
+                .publishOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .doOnNext(snapshot -> savedProjects.registerSnapshot(owner, snapshot));
+    }
 
     private final FigmaService figmaService;
     private final FigmaParserService figmaParserService;
@@ -107,7 +117,7 @@ public class FigmaController {
     @GetMapping(value = "/file/{fileKey}/structure", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<StructureSummary> getStructure(@PathVariable String fileKey,
                                                 @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> figmaService.analyzeStructureJson(snapshot.getRawJson()));
     }
 
@@ -121,7 +131,7 @@ public class FigmaController {
     // GET /api/figma/file/{fileKey}/tree — tra ve cay UI da chuan hoa, thay vi JSON tho cua Figma
     @GetMapping(value = "/file/{fileKey}/tree", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<UINode> getTree(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> DesignNodeMapper.toLegacy(snapshot.getDesignIr()));
     }
 
@@ -129,14 +139,14 @@ public class FigmaController {
     @GetMapping(value = "/file/{fileKey}/ir", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<DesignNode> getDesignIr(@PathVariable String fileKey,
                                         @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> snapshot.getDesignIr());
     }
 
     // GET /api/figma/file/{fileKey}/html — sinh HTML cau truc (chua co CSS) tu cay UI
     @GetMapping(value = "file/{fileKey}/html", produces = MediaType.TEXT_PLAIN_VALUE)
     public Mono<String> getHtml(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> htmlGeneratorService.generate(snapshot.getDesignIr()));
     }
 
@@ -144,7 +154,7 @@ public class FigmaController {
     @GetMapping(value = "/file/{fileKey}/react", produces = MediaType.TEXT_PLAIN_VALUE)
     public Mono<String> getReact(@PathVariable String fileKey,
                                  @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> reactGeneratorService.generate(snapshot.getDesignIr()));
     }
 
@@ -155,14 +165,14 @@ public class FigmaController {
     // nay chi phuc vu xem nhanh phan style layout/mau/chu, chua co asset that.
     @GetMapping(value = "/file/{fileKey}/css", produces = "text/css")
     public Mono<String> getCss(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .map(snapshot -> cssGeneratorService.generate(snapshot.getDesignIr()));
     }
 
     // GET /api/figma/file/{fileKey}/export — tra ve file ZIP gom index.html + styles.css, tai xuong thuc su
     @GetMapping(value = "/file/{fileKey}/preview", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<String> getPreview(@PathVariable String fileKey, @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
                         .map(assets -> {
                             Map<String, String> imageUrls = new java.util.LinkedHashMap<>();
@@ -187,7 +197,7 @@ public class FigmaController {
     public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String fileKey,
                                                   @RequestParam(defaultValue = "AUTO") String type,
                                                   @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
                         .map(assets -> ResponseEntity.ok()
                                 .contentType(MediaType.parseMediaType("application/zip"))
@@ -200,7 +210,7 @@ public class FigmaController {
     @GetMapping("/file/{fileKey}/export/react")
     public Mono<ResponseEntity<byte[]>> exportReact(@PathVariable String fileKey,
                                                      @RequestHeader(value = TOKEN_HEADER, required = false) String token) {
-        return snapshotService.getOrImportByFileKey(fileKey, token)
+        return ownedImport(fileKey, token)
                 .flatMap(snapshot -> snapshotService.getAssets(snapshot.getSnapshotId())
                         .map(assets -> ResponseEntity.ok()
                                 .contentType(MediaType.parseMediaType("application/zip"))

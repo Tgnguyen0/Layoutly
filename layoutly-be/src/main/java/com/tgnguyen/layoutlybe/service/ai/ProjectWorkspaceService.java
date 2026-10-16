@@ -3,6 +3,8 @@ package com.tgnguyen.layoutlybe.service.ai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tgnguyen.layoutlybe.model.ir.DesignNode;
 import com.tgnguyen.layoutlybe.service.AssetExportService;
+import com.tgnguyen.layoutlybe.service.DesignRootSelector;
+import com.tgnguyen.layoutlybe.service.FigmaSnapshotService;
 import com.tgnguyen.layoutlybe.service.HtmlProjectExportService;
 import com.tgnguyen.layoutlybe.service.ReactProjectExportService;
 import com.tgnguyen.layoutlybe.service.SnapshotStorageService;
@@ -32,6 +34,10 @@ public class ProjectWorkspaceService {
     private final HtmlProjectExportService htmlProjectExportService;
     private final WorkspacePathGuard pathGuard;
     private final ObjectMapper objectMapper;
+    private FigmaSnapshotService snapshots;
+
+    @Autowired
+    public void setSnapshotService(FigmaSnapshotService snapshots) { this.snapshots = snapshots; }
 
     @Autowired
     public ProjectWorkspaceService(
@@ -55,8 +61,36 @@ public class ProjectWorkspaceService {
         return workspacesRoot.resolve(snapshotId).normalize();
     }
 
+    public boolean knownRevision(String snapshotId, String revisionId) {
+        if ("rev_000_baseline".equals(revisionId)) return true;
+        try {
+            var history = objectMapper.readTree(getProjectDirectory(snapshotId).resolve("revisions_history.json").toFile());
+            for (var item : history) if (revisionId.equals(item.path("revisionId").asText())) return true;
+            return false;
+        } catch (IOException ex) { return false; }
+    }
+
+    public void copyProject(String originalId, String nextId) {
+        Path original = getProjectDirectory(originalId);
+        Path next = getProjectDirectory(nextId);
+        if (Files.exists(next)) throw new IllegalArgumentException("Destination workspace already exists.");
+        if (!Files.isDirectory(original)) return;
+        copyDirectory(original, next);
+        for (String fileName : List.of("revisions_history.json", "accepted_revision.json")) {
+            Path file = next.resolve(fileName);
+            if (!Files.isRegularFile(file)) continue;
+            try {
+                var value = objectMapper.readTree(file.toFile());
+                if (value.isArray()) for (var item : value) ((com.fasterxml.jackson.databind.node.ObjectNode)item).put("snapshotId", nextId);
+                else ((com.fasterxml.jackson.databind.node.ObjectNode)value).put("snapshotId", nextId);
+                objectMapper.writeValue(file.toFile(), value);
+            } catch (IOException ex) { throw new IllegalStateException("Could not copy revision metadata.", ex); }
+        }
+    }
+
     public synchronized Path getOrInitializeWorkspace(String snapshotId, String revisionId, String targetFramework) {
-        Path projectDir = getProjectDirectory(snapshotId);
+        if (revisionId != null && !revisionId.isBlank() && !revisionId.matches("[a-zA-Z0-9_-]{1,80}")) throw new IllegalArgumentException("Revision ID khong hop le.");
+        Path projectDir = frameworkDirectory(snapshotId, targetFramework);
 
         String safeFramework = (targetFramework == null || targetFramework.isBlank()) ? "REACT" : targetFramework.toUpperCase();
         Path revisionDir = projectDir.resolve("revisions").resolve(revisionId == null || revisionId.isBlank() ? "rev_000_baseline" : revisionId).normalize();
@@ -80,7 +114,7 @@ public class ProjectWorkspaceService {
 
     public Path getAcceptedWorkspaceDir(String snapshotId, String targetFramework) {
         validateId(snapshotId, "Snapshot ID");
-        Path projectDir = workspacesRoot.resolve(snapshotId).normalize();
+        Path projectDir = frameworkDirectory(snapshotId, targetFramework);
         Path acceptedDir = projectDir.resolve("accepted");
 
         if (!Files.isDirectory(acceptedDir)) {
@@ -92,7 +126,8 @@ public class ProjectWorkspaceService {
 
     public void updateAcceptedWorkspace(String snapshotId, Path sourceRevisionDir) {
         validateId(snapshotId, "Snapshot ID");
-        Path projectDir = workspacesRoot.resolve(snapshotId).normalize();
+        Path projectDir = sourceRevisionDir.toAbsolutePath().normalize().getParent().getParent();
+        if (!projectDir.startsWith(getProjectDirectory(snapshotId))) throw new SecurityException("Revision is outside its project.");
         Path acceptedDir = projectDir.resolve("accepted");
 
         try {
@@ -101,6 +136,17 @@ public class ProjectWorkspaceService {
         } catch (Exception e) {
             throw new RuntimeException("Khong the cap nhat accepted workspace: " + e.getMessage(), e);
         }
+    }
+
+    private Path frameworkDirectory(String snapshotId, String targetFramework) {
+        String framework = targetFramework == null ? "REACT" : targetFramework.toUpperCase();
+        if (!List.of("REACT", "HTML").contains(framework)) throw new IllegalArgumentException("Unsupported workspace framework.");
+        Path project = getProjectDirectory(snapshotId);
+        Path legacy = project.resolve("revisions/rev_000_baseline");
+        boolean legacyReact = Files.isRegularFile(legacy.resolve("src/main.jsx"));
+        boolean hasLegacy = Files.isDirectory(legacy);
+        if ((!hasLegacy && "REACT".equals(framework)) || (hasLegacy && legacyReact == "REACT".equals(framework))) return project;
+        return project.resolve(framework.toLowerCase());
     }
 
     public List<String> listProjectFiles(Path workspaceDir) {
@@ -132,6 +178,10 @@ public class ProjectWorkspaceService {
         }
     }
 
+    public byte[] readProjectFileBytes(Path workspaceDir, String relativePath) throws IOException {
+        return Files.readAllBytes(pathGuard.validateAndResolve(workspaceDir, relativePath));
+    }
+
     public void writeProjectFile(Path workspaceDir, String relativePath, String content) {
         Path file = pathGuard.validateAndResolve(workspaceDir, relativePath);
         try {
@@ -160,7 +210,9 @@ public class ProjectWorkspaceService {
 
         for (String relative : files) {
             try {
+                if (!relative.matches("(?i).*\\.(jsx?|tsx?|css|html?|json|md|txt)$")) continue;
                 Path file = pathGuard.validateAndResolve(workspaceDir, relative);
+                if (Files.size(file) > 2_000_000) continue;
                 List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
                 List<String> matchingLines = new ArrayList<>();
                 for (int i = 0; i < lines.size(); i++) {
@@ -203,8 +255,13 @@ public class ProjectWorkspaceService {
 
         try {
             Files.createDirectories(destinationDir);
-            DesignNode designIr = readIr(snapshotId);
-            AssetExportService.AssetBundle assets = stored.assets() != null ? stored.assets() : new AssetExportService.AssetBundle(Map.of(), Map.of());
+            DesignNode designIr = snapshots != null ? snapshots.requireSnapshot(snapshotId).getDesignIr() : readIr(snapshotId);
+            DesignNode selected = findNode(designIr, stored.metadata().rootNodeId());
+            designIr = DesignRootSelector.defaultPage(selected == null ? designIr : selected);
+            // Files/explorer can load before the preview; both must wait for the same durable assets.
+            AssetExportService.AssetBundle assets = snapshots != null
+                    ? snapshots.getAssets(snapshotId).block(java.time.Duration.ofMinutes(3)) : stored.assets();
+            if (assets == null) assets = new AssetExportService.AssetBundle(Map.of(), Map.of());
 
             Map<String, byte[]> fileMap;
             if ("HTML".equalsIgnoreCase(framework)) {
@@ -258,6 +315,16 @@ public class ProjectWorkspaceService {
                 .map(s -> workspacesRoot.getParent().resolve("snapshots").resolve(snapshotId).resolve("design-ir.json"))
                 .orElseThrow();
         return objectMapper.readValue(irFile.toFile(), DesignNode.class);
+    }
+
+    private DesignNode findNode(DesignNode node, String id) {
+        if (node == null) return null;
+        if (java.util.Objects.equals(node.getId(), id)) return node;
+        if (node.getChildren() != null) for (DesignNode child : node.getChildren()) {
+            DesignNode found = findNode(child, id);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     private void copyDirectory(Path source, Path target) {

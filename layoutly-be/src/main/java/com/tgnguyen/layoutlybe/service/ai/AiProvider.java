@@ -4,6 +4,7 @@ import com.tgnguyen.layoutlybe.model.ai.AiMessage;
 import com.tgnguyen.layoutlybe.model.ai.AiToolCall;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public interface AiProvider {
@@ -34,6 +35,10 @@ public interface AiProvider {
     List<ModelOption> getAvailableModels();
 
     boolean supportsToolCalling(String model);
+
+    default Map<String, Object> diagnostics() { return Map.of(); }
+
+    default Object modelDetails() { return getAvailableModels(); }
 
     ProviderCompletion complete(List<AiMessage> messages, Object toolDefinitions, double temperature, String model);
 

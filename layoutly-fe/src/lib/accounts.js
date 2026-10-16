@@ -57,3 +57,51 @@ export async function submitAccountForm(mode, values, capabilities, signal) {
   }
   return response.status === 204 ? null : response.json()
 }
+
+// Sessions use HttpOnly cookies; credentials and authentication tokens never enter browser storage.
+async function accountRequest(path, { method = 'GET', body, signal } = {}) {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  signal?.addEventListener('abort', abort, { once: true })
+  if (signal?.aborted) controller.abort()
+  const timer = setTimeout(abort, 15000)
+  try {
+    const headers = {}
+    if (method !== 'GET') {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'same-origin', signal: controller.signal })
+      if (!csrfResponse.ok) throw new Error('Không thể khởi tạo phiên bảo mật. Vui lòng thử lại.')
+      const csrf = await csrfResponse.json()
+      if (csrf.headerName !== 'X-CSRF-TOKEN' || !csrf.token) throw new Error('Phiên bảo mật không hợp lệ.')
+      headers['X-CSRF-TOKEN'] = csrf.token
+      headers['Content-Type'] = 'application/json'
+    }
+    const response = await fetch(`/api/auth${path}`, {
+      method, credentials: 'same-origin', cache: 'no-store', headers,
+      signal: controller.signal, body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    const data = response.status === 204 ? null : await response.json().catch(() => null)
+    if (!response.ok) {
+      const error = new Error(response.status < 500 && data?.message ? data.message
+        : response.status === 401 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Không thể kết nối dịch vụ tài khoản. Vui lòng thử lại.')
+      error.status = response.status
+      throw error
+    }
+    return data
+  } catch (error) {
+    if (controller.signal.aborted && !signal?.aborted) throw new Error('Yêu cầu quá thời gian chờ. Vui lòng thử lại.')
+    if (error instanceof TypeError) throw new Error('Không thể kết nối dịch vụ tài khoản. Vui lòng thử lại.')
+    throw error
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort) }
+}
+
+export const accountApi = {
+  bridgeToken: () => accountRequest('/bridge-token', { method: 'POST' }),
+  resetPassword: (token, password) => accountRequest('/reset-password', { method: 'POST', body: { token, password } }),
+  me: signal => accountRequest('/me', { signal }),
+  update: body => accountRequest('/profile', { method: 'PATCH', body }),
+  password: body => accountRequest('/password', { method: 'POST', body }),
+  sessions: () => accountRequest('/sessions'),
+  revokeOthers: () => accountRequest('/sessions/revoke-others', { method: 'POST' }),
+  logout: () => accountRequest('/logout', { method: 'POST' }),
+  delete: currentPassword => accountRequest('/account', { method: 'DELETE', body: { currentPassword } }),
+}

@@ -1,0 +1,60 @@
+{
+  "name": "responsive",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "wide",
+            "name": "wide",
+            "type": "RECTANGLE",
+            "absoluteBoundingBox": {
+              "x": 20,
+              "y": 20,
+              "width": 760,
+              "height": 180
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.15,
+                  "g": 0.35,
+                  "b": 0.65,
+                  "a": 1
+                }
+              }
+            ],
+            "constraints": {
+              "horizontal": "LEFT_RIGHT",
+              "vertical": "TOP"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

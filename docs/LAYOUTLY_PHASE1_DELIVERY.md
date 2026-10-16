@@ -1,5 +1,7 @@
 # Layoutly Phase 1 Delivery
 
+> PostgreSQL đã được chọn chính thức và triển khai sau Phase 1. Xem [PostgreSQL, Authentication và Saved Projects](LAYOUTLY_POSTGRESQL_AUTH_PROJECTS.md). Đề xuất MySQL trong báo cáo lịch sử này đã bị thay thế.
+
 Ngày: 2026-10-09. **Phase 1 đã triển khai; Phase 2 chưa bắt đầu, chờ duyệt.**
 
 ## 1. Phạm Vi Đã Làm

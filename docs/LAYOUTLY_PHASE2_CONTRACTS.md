@@ -1,20 +1,22 @@
 # Layoutly Phase 2 Contracts And Migration
 
+> Cập nhật chính thức 16/10/2026: chọn PostgreSQL, không dùng MySQL. Các contracts lịch sử dưới đây được đối chiếu bằng [triển khai, API và kết quả test hiện hành](LAYOUTLY_POSTGRESQL_AUTH_PROJECTS.md); không dùng các mô tả “chưa triển khai” làm trạng thái hiện tại.
+
 Ngày: 2026-10-09. **Đề xuất, chưa triển khai backend/DB.** Cần duyệt sau Phase 1. Không thay thế audit/roadmap A01-A20 và không cho phép public hosting trước khi qua security gates.
 
-## 1. Hạ Tầng Hiện Tại
+## 1. Hạ Tầng Tại Thời Điểm Lập Đề Xuất
 
-- Java 17 / Spring Boot 3.3.2 / Maven; chưa có Spring Security, JPA/JDBC, MySQL driver hoặc Flyway trong `layoutly-be/pom.xml`.
+- Java 17 / Spring Boot 3.3.2 / Maven; chưa có Spring Security, JPA/JDBC, PostgreSQL driver hoặc Flyway trong `layoutly-be/pom.xml`.
 - `SnapshotStorageService` đang lưu raw JSON, IR, metadata, assets/reference theo snapshot trên đĩa. API snapshot/cache chưa có owner isolation. Không có user/project database để migrate lúc này.
 - Frontend React 18 / Vite 5 / Tailwind 3; Phase 1 thêm auth UI và capability gate, không tạo tài khoản/session/project demo.
-- MySQL chưa được xác minh đang chạy; không tự cài, tạo database hay chạy SQL. Phase 2 đề xuất MySQL 8.4 và migration versioned, cần xác nhận môi trường trước khi chọn connection/config.
+- Quyết định chính thức đã chọn PostgreSQL 16, Flyway và Spring Data JPA. Xem hướng dẫn hiện hành để chạy Compose và migration có kiểm soát.
 
 ## 2. Dependency Và Acceptance
 
 | Task Phase 2 | Dependency | Nghiệm thu / tests bắt buộc |
 | --- | --- | --- |
 | P2.1: RFC/trust/storage | Duyệt Phase 1 và tài liệu này | Chốt local-only/hosted, terms version, backup/retention, owner binding, Bridge pairing; snapshot public API không bị đổi âm thầm |
-| P2.2: DB migrations | P2.1, MySQL test environment | Flyway + Spring Data + driver đúng versions Boot; apply trên DB trống, migration replay, FK isolation, rollback operational plan; không dùng ddl-auto=update |
+| P2.2: DB migrations | P2.1, PostgreSQL test environment | Flyway + Spring Data + driver đúng versions Boot; apply trên DB trống, migration replay, FK isolation, rollback operational plan; không dùng ddl-auto=update |
 | P2.3: Security/session | P2.2; A01/A11 gate | Spring Security, password encoder, CSRF, session fixation/expiry, rate limits; register/login/logout/me và cross-user tests; capability chỉ bật khi service hoạt động |
 | P2.4: Owned storage | P2.3; A02/A03/A20 | Owner-filter mọi snapshot/assets/cache/preview/export; restart/missing files; snapshot immutable cho project; không reuse cache across users chỉ bằng fileKey |
 | P2.5: Projects/revisions | P2.4 | CRUD/duplicate/trash/restore; save/reopen/restart; optimistic concurrency; accepted revision export; no arbitrary disk path từ client |
@@ -77,7 +79,7 @@ erDiagram
 | ProjectAsset | projectId, nodeId, hash/MIME/size, storageKey | Bytes; dedup chỉ sau authorization; source/render provenance |
 | ExportHistory | projectId, revisionId, format/settings/status/hash, createdAt | ZIP, retention policy; không raw PAT |
 
-Không lưu toàn DesignNode tree, images/fonts/ZIP lớn trong MySQL. Large payload dùng storage key do server tạo và kiểm containment. DB giữ manifests/hash và authorization; revision settings/navigation nhỏ vẫn có budget.
+PostgreSQL lưu DesignNode và metadata bằng JSONB. Images/fonts/ZIP lớn dùng storage key do server tạo và kiểm containment. DB giữ manifests/hash và authorization; metadata nhỏ vẫn có budget.
 
 Original Figma snapshot của project immutable. Service refresh hiện tại có thể thay cùng snapshotId; không gắn mutable REST snapshot trực tiếp làm original rồi cho refresh phá history. Khi save vào project, freeze bản có ownership/manifest riêng; refresh/import tạo revision mới. Không overwrite raw cũ khi parser/schema đổi.
 
@@ -108,18 +110,18 @@ Export và preview mặc định accepted revision; draft chỉ khi request ch�
 ## 6. Migration Không Phá Snapshot Cũ
 
 1. Backup **copy** data directory và DB trước migration; hashes/inventory. Không xóa, move hoặc overwrite snapshot gốc. Chạy test migration trên bản sao/tạm.
-2. Flyway tạo schema/version table mới; app không tự sửa schema bằng hibernate ddl-auto. Hạ tầng MySQL, TLS/secret config và test instance được xác nhận trước.
+2. Flyway tạo schema/version table mới; app không tự sửa schema bằng hibernate ddl-auto. Hạ tầng PostgreSQL, TLS/secret config và test instance được xác nhận trước.
 3. OwnedSnapshot index liên kết file manifest với owner; legacy snapshots **không tự thuộc bất kỳ user mới đăng ký nào**. Import/claim chỉ được phép qua explicit local-admin migration/pairing có provenance, không endpoint claim UUID tùy ý.
 4. Wrap SnapshotStorageService bằng owner-aware facade. Tất cả controllers đọc snapshot/assets/preview/export phải đi facade trong secured profile; không chỉ bảo vệ ProjectsController.
 5. Local compatibility profile giữ workflow cũ trong phạm vi localhost có cảnh báo; hosted profile deny legacy anonymous access. Tách cache theo owner/revision; session khác owner không thể lấy cached file bằng fileKey.
 6. Bridge trong secure profile cần pairing: logged-in web tạo short-lived, scoped import grant; plugin exchange/pair, then upload vào owner/project. Không dựa third-party session cookies trong Figma iframe; không cho `null` origin trở thành public authentication bypass.
 7. Migrate selected roots/manifests qua reader versioned; missing asset bytes ->PARTIAL, không fake COMPLETE. Parser upgrade tạo derived artifact theo version mới, giữ raw/ref unchanged.
 8. Switch frontend capability booleans sau khi deploy các endpoints/tests tương ứng; account session authoritative qua `/me`; cập nhật redirect sau login sang Dashboard.
-9. Rollback app giữ reader/storage cũ và tắt capability; DB migrations forward-compatible. MySQL DDL có implicit commit: không hứa rollback mọi DDL bằng transaction. Restore backup có procedure, không chạy down migration tự động trên dữ liệu thật.
+9. Rollback app giữ reader/storage cũ và tắt capability; DB migrations forward-compatible. PostgreSQL hỗ trợ transactional DDL; rollback ứng dụng và file storage vẫn cần quy trình độc lập. Restore backup có procedure, không chạy down migration tự động trên dữ liệu thật.
 
 ## 7. Quality Gates Trước Bật Capability
 
-- Backend JUnit + HTTP/MockMvc tests chạy trên MySQL thật trong test instance hoặc Testcontainers nếu hạ tầng cho phép; không gọi H2 pass là MySQL parity.
+- Backend JUnit + HTTP/MockMvc tests chạy trên PostgreSQL thật trong test instance hoặc Testcontainers nếu hạ tầng cho phép; không gọi H2 pass là PostgreSQL parity.
 - Register/login/logout/expiry/CSRF/remember-me; email enumeration/rate-limit; server validation khớp frontend; OAuth/reset hidden khi config thiếu.
 - Owner A/B với project, snapshot, asset, preview, export, versions, duplicate/restore, cached response. Không thử trên design private của người dùng.
 - Save/reopen/restart với disk asset hashes; interrupted DB/storage commit có reconciliation, không publish project trước manifest commit.

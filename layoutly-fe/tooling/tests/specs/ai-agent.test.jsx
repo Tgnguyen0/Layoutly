@@ -1,98 +1,26 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+﻿import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import AIChatPanel from '../../../src/components/workspace/AIChatPanel.jsx'
-import { snapshotApi } from '../../../src/lib/api.js'
-
-vi.mock('../../../src/lib/api.js', () => ({
-  snapshotApi: {
-    aiStatus: vi.fn(),
-    aiChat: vi.fn(),
-    aiRevisions: vi.fn(),
-    aiAccept: vi.fn(),
-    aiReject: vi.fn()
-  },
-  downloadAiExport: vi.fn()
-}))
-
-describe('AIChatPanel component', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    snapshotApi.aiStatus.mockResolvedValue({ json: { available: true, provider: 'OpenAI' } })
-    snapshotApi.aiRevisions.mockResolvedValue({ json: [] })
-  })
-
-  it('renders connected AI status when API is available', async () => {
-    render(<AIChatPanel snapshot={{ snapshotId: 'snap123' }} onClose={() => {}} />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Connected \(OpenAI\)/i)).toBeInTheDocument()
-    })
-    expect(screen.getByPlaceholderText(/Nhap yeu cau chinh sua code.../i)).not.toBeDisabled()
-  })
-
-  it('renders disconnected message when AI status is unavailable', async () => {
-    snapshotApi.aiStatus.mockResolvedValue({ json: { available: false, message: 'Missing API key' } })
-    render(<AIChatPanel snapshot={{ snapshotId: 'snap123' }} onClose={() => {}} />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Chua ket noi/i)).toBeInTheDocument()
-    })
-    expect(screen.getByPlaceholderText(/Dich vu AI chưa duoc ket noi.../i)).toBeDisabled()
-  })
-
-  it('sends user prompt and displays AI draft revision response', async () => {
-    snapshotApi.aiChat.mockResolvedValue({
-      json: {
-        message: 'Da doi mau nut thanh vang',
-        revisionId: 'rev_001',
-        status: 'DRAFT',
-        modifiedFiles: ['src/App.jsx'],
-        diffs: [{ filePath: 'src/App.jsx', changeType: 'MODIFIED', patchUnified: '--- a/src/App.jsx\n+++ b/src/App.jsx' }],
-        buildSuccess: true
-      }
-    })
-
-    render(<AIChatPanel snapshot={{ snapshotId: 'snap123' }} onClose={() => {}} />)
-
-    await waitFor(() => expect(screen.getByPlaceholderText(/Nhap yeu cau/i)).not.toBeDisabled())
-
-    const input = screen.getByPlaceholderText(/Nhap yeu cau/i)
-    fireEvent.change(input, { target: { value: 'Doi mau nut thanh vang' } })
-    fireEvent.click(screen.getByTitle(/Gui yeu cau AI/i))
-
-    await waitFor(() => {
-      expect(screen.getByText(/Da doi mau nut thanh vang/i)).toBeInTheDocument()
-      expect(screen.getByText(/Draft Revision Propose: rev_001/i)).toBeInTheDocument()
-    })
-  })
-
-  it('handles accept revision button click', async () => {
-    snapshotApi.aiChat.mockResolvedValue({
-      json: {
-        message: 'Draft created',
-        revisionId: 'rev_002',
-        status: 'DRAFT',
-        modifiedFiles: ['src/App.jsx']
-      }
-    })
-    snapshotApi.aiAccept.mockResolvedValue({ json: { status: 'ACCEPTED' } })
-    const onAccepted = vi.fn()
-
-    render(<AIChatPanel snapshot={{ snapshotId: 'snap123' }} onClose={() => {}} onRevisionAccepted={onAccepted} />)
-
-    await waitFor(() => expect(screen.getByPlaceholderText(/Nhap yeu cau/i)).not.toBeDisabled())
-
-    const input = screen.getByPlaceholderText(/Nhap yeu cau/i)
-    fireEvent.change(input, { target: { value: 'Fix styles' } })
-    fireEvent.click(screen.getByTitle(/Gui yeu cau AI/i))
-
-    await waitFor(() => expect(screen.getByText(/Chap nhan/i)).toBeInTheDocument())
-
-    fireEvent.click(screen.getByText(/Chap nhan/i))
-
-    await waitFor(() => {
-      expect(snapshotApi.aiAccept).toHaveBeenCalledWith('snap123', 'rev_002', 'REACT')
-      expect(onAccepted).toHaveBeenCalled()
-    })
-  })
+import AIChatPanel, { connectionState, diffStats } from '../../../src/components/workspace/AIChatPanel.jsx'
+import { snapshotApi, downloadAiExport } from '../../../src/lib/api.js'
+vi.mock('../../../src/lib/api.js', () => ({ snapshotApi: { aiStatus: vi.fn(), aiChat: vi.fn(), aiRevisions: vi.fn(), aiDiff: vi.fn(), aiAccept: vi.fn(), aiReject: vi.fn() }, downloadAiExport: vi.fn() }))
+const snapshot = { snapshotId: 'snap123' }
+const ready = { available: true, activeProvider: 'local', activeModel: 'coder', providers: [{ id: 'local', displayName: 'Local AI', configured: true, models: [{ id: 'coder', name: 'Qwen Coder', supportsTools: true }, { id: 'offline', name: 'Offline model', available: false }] }] }
+const revision = { message: 'Đã đổi màu nút thành vàng', revisionId: 'rev_001', status: 'DRAFT', targetFramework: 'REACT', modifiedFiles: ['src/App.jsx'], diffs: [{ filePath: 'src/App.jsx', changeType: 'MODIFIED', patchUnified: '--- a/src/App.jsx\n+++ b/src/App.jsx\n-old\n+new' }], buildSuccess: true }
+async function send(prompt = 'Đổi màu nút') { await waitFor(() => expect(screen.getByRole('combobox', { name: 'AI model' })).toHaveValue('local::coder')); fireEvent.change(screen.getByRole('textbox', { name: 'Yêu cầu AI' }), { target: { value: prompt } }); fireEvent.click(screen.getByTitle('Gui yeu cau AI')) }
+beforeEach(() => { vi.clearAllMocks(); snapshotApi.aiStatus.mockResolvedValue({ json: ready }); snapshotApi.aiRevisions.mockResolvedValue({ json: [] }); snapshotApi.aiChat.mockResolvedValue({ json: revision }); snapshotApi.aiDiff.mockResolvedValue({ json: revision.diffs }); snapshotApi.aiAccept.mockResolvedValue({ json: { ...revision, status: 'ACCEPTED' } }); snapshotApi.aiReject.mockResolvedValue({ json: { ...revision, status: 'REJECTED' } }); HTMLDialogElement.prototype.showModal = function () { this.open = true }; HTMLDialogElement.prototype.close = function () { this.open = false } })
+describe('AI workspace lifecycle', () => {
+  it('does not call a configured key Connected or Model Ready', async () => { render(<AIChatPanel snapshot={snapshot} />); expect(await screen.findByText('Configured · unverified')).toBeInTheDocument(); expect(screen.queryByText(/^Connected/)).not.toBeInTheDocument(); expect(screen.getByRole('option', { name: 'Offline model' })).toBeDisabled() })
+  it('uses explicit backend evidence for provider/model readiness and processing', () => { expect(connectionState({ available:true }, false, false).label).toBe('Configured · unverified'); expect(connectionState({ providerReachable:true }).label).toBe('Provider Reachable'); expect(connectionState({ modelReady:true }).label).toBe('Model Ready'); expect(connectionState({},true).label).toBe('Processing'); expect(connectionState({},false,true).label).toBe('Model Error') })
+  it('keeps unavailable AI truthful and blocks sending', async () => { snapshotApi.aiStatus.mockResolvedValue({ json: { available:false, message:'Missing API key' } }); render(<AIChatPanel snapshot={snapshot} />); expect(await screen.findByText('Not Configured')).toBeInTheDocument(); fireEvent.change(screen.getByLabelText('Yêu cầu AI'), { target:{value:'hello'} }); expect(screen.getByTitle('Gui yeu cau AI')).toBeDisabled() })
+  it('fills suggestions without submitting them', async () => { render(<AIChatPanel snapshot={snapshot} />); fireEvent.click(screen.getAllByRole('button',{name:'Đổi màu nút',exact:true})[0]); expect(screen.getByLabelText('Yêu cầu AI').value).toContain('#F59E0B'); expect(snapshotApi.aiChat).not.toHaveBeenCalled() })
+  it('sends selected model, framework and node context and renders a real draft', async () => { render(<AIChatPanel snapshot={snapshot} selectedNode={{id:'1:2',name:'Button'}} />); await send(); expect(await screen.findByText('Đã đổi màu nút thành vàng')).toBeInTheDocument(); expect(screen.getByText('rev_001')).toBeInTheDocument(); expect(screen.getByText('Static checks passed')).toBeInTheDocument(); expect(screen.queryByText('Build passed')).not.toBeInTheDocument(); expect(snapshotApi.aiChat).toHaveBeenCalledWith('snap123', expect.objectContaining({provider:'local',model:'coder',selectedNodeId:'1:2',targetFramework:'REACT'})) })
+  it('preserves Shift+Enter and sends on Enter', async () => { render(<AIChatPanel snapshot={snapshot} />); await screen.findByText('Configured · unverified'); const input=screen.getByLabelText('Yêu cầu AI'); fireEvent.change(input,{target:{value:'Fix spacing'}}); fireEvent.keyDown(input,{key:'Enter',shiftKey:true}); expect(snapshotApi.aiChat).not.toHaveBeenCalled(); fireEvent.keyDown(input,{key:'Enter'}); await waitFor(()=>expect(snapshotApi.aiChat).toHaveBeenCalledTimes(1)) })
+  it('shows only real request processing while backend has no tool events', async () => { let finish; snapshotApi.aiChat.mockImplementation(()=>new Promise(resolve=>{finish=resolve})); render(<AIChatPanel snapshot={snapshot} />); await send(); expect(screen.getByText('AI đang xử lý yêu cầu')).toBeInTheDocument(); expect(screen.queryByText('Đang kiểm tra build')).not.toBeInTheDocument(); finish({json:revision}); await screen.findByText('Đã đổi màu nút thành vàng') })
+  it('fetches diff before opening the accessible modal', async () => { render(<AIChatPanel snapshot={snapshot} />); await send(); fireEvent.click(await screen.findByRole('button',{name:'Xem diff',exact:true})); const dialog=await screen.findByRole('dialog',{name:'Code diff'}); expect(snapshotApi.aiDiff).toHaveBeenCalledWith('snap123','rev_001','REACT'); expect(within(dialog).getByText('+new')).toBeInTheDocument(); fireEvent.click(within(dialog).getByRole('button',{name:'Đóng diff'})); expect(screen.queryByRole('dialog')).not.toBeInTheDocument() })
+  it('accepts then refreshes code/preview and disables stale accept controls', async () => { const accepted=vi.fn(); render(<AIChatPanel snapshot={snapshot} onRevisionAccepted={accepted} />); await send(); fireEvent.click(await screen.findByRole('button',{name:'Chấp nhận',exact:true})); await waitFor(()=>expect(accepted).toHaveBeenCalledWith(expect.objectContaining({revisionId:'rev_001',status:'ACCEPTED'}))); expect(snapshotApi.aiAccept).toHaveBeenCalledWith('snap123','rev_001','REACT'); expect(screen.queryByRole('button',{name:'Chấp nhận',exact:true})).not.toBeInTheDocument() })
+  it('previews draft and rejects it without accepting', async () => { const preview=vi.fn(),reject=vi.fn(); render(<AIChatPanel snapshot={snapshot} onPreviewRevision={preview} onRevisionRejected={reject} />); await send(); fireEvent.click(await screen.findByRole('button',{name:'Xem trước',exact:true})); expect(preview).toHaveBeenCalledWith(expect.objectContaining({revisionId:'rev_001'})); fireEvent.click(screen.getByRole('button',{name:'Từ chối',exact:true})); await waitFor(()=>expect(reject).toHaveBeenCalled()); expect(snapshotApi.aiAccept).not.toHaveBeenCalled() })
+  it('loads history and exports a specific accepted revision', async () => { snapshotApi.aiRevisions.mockResolvedValue({json:[{...revision,status:'ACCEPTED'}]}); render(<AIChatPanel snapshot={snapshot} />); await screen.findByText('Configured · unverified'); fireEvent.click(screen.getByRole('tab',{name:/Revisions/})); fireEvent.click(await screen.findByRole('button',{name:'ZIP',exact:true})); expect(downloadAiExport).toHaveBeenCalledWith('snap123','rev_001','REACT') })
+  it('escapes AI HTML and supports retry after request failure', async () => { snapshotApi.aiChat.mockRejectedValueOnce(new Error('Provider offline')).mockResolvedValueOnce({json:{...revision,message:'<img src=x onerror=alert(1) />'}}); render(<AIChatPanel snapshot={snapshot} />); await send(); fireEvent.click(await screen.findByRole('button',{name:'Thử lại'})); expect(await screen.findByText('<img src=x onerror=alert(1) />')).toBeInTheDocument(); expect(document.querySelector('.we-message img')).toBeNull() })
+  it('closes the panel through the supplied callback',()=>{const close=vi.fn();render(<AIChatPanel snapshot={snapshot} onClose={close} />);fireEvent.click(screen.getByRole('button',{name:'Đóng AI Chat'}));expect(close).toHaveBeenCalledTimes(1)})
+  it('counts unified diff lines without counting headers',()=>{expect(diffStats(revision.diffs)).toEqual({added:1,deleted:1})})
 })

@@ -12,6 +12,31 @@ class ReactGeneratorServiceTest {
     private final FigmaParserService parser = new FigmaParserService();
     private final ReactGeneratorService generator = new ReactGeneratorService();
 
+    @Test void optInPagePolicySplitsCanvasAndPreservesRealPrototypeRoutes() throws Exception {
+        var canvas=parser.parseDesignTree("""
+          {"document":{"id":"canvas","name":"Screens","type":"CANVAS","children":[
+           {"id":"home","name":"Home","type":"FRAME","absoluteBoundingBox":{"x":0,"y":0,"width":800,"height":600},"children":[
+            {"id":"next","type":"RECTANGLE","interactions":[{"trigger":{"type":"ON_CLICK"},"actions":[{"type":"NODE","navigation":"NAVIGATE","destinationId":"cart"}]}]}]},
+           {"id":"cart","name":"Cart","type":"FRAME","absoluteBoundingBox":{"x":1000,"y":0,"width":800,"height":600}}]}}
+          """);
+        assertThat(generator.generatePages(canvas)).hasSize(1);
+        var pages=new ReactGeneratorService(true).generatePages(canvas);
+        assertThat(pages).hasSize(2);
+        assertThat(pages).extracting(ReactGeneratorService.GeneratedPage::route).containsExactly("/","/cart");
+        assertThat(pages.get(0).source()).contains("to=\"/cart\"").doesNotContain("node-cart");
+        assertThat(new HtmlGeneratorService().generateAuto(canvas)).hasSize(pages.size());
+    }
+
+    @Test void pagePolicyKeepsContinuousSectionsTogetherAndLegacyModeUnchanged() throws Exception {
+        var canvas=parser.parseDesignTree("""
+          {"document":{"id":"canvas","name":"Landing","type":"CANVAS","children":[
+           {"id":"hero","type":"FRAME","absoluteBoundingBox":{"x":0,"y":0,"width":800,"height":200}},
+           {"id":"footer","type":"FRAME","absoluteBoundingBox":{"x":0,"y":200,"width":800,"height":200}}]}}
+          """);
+        assertThat(new ReactGeneratorService(true).generatePages(canvas)).hasSize(1);
+        assertThat(new ReactGeneratorService(true).generatePages(canvas).get(0).source()).contains("node-hero","node-footer");
+    }
+
     @Test
     void createsNamedPageComponentAndEscapesText() throws Exception {
         DesignNode tree = sampleTree();

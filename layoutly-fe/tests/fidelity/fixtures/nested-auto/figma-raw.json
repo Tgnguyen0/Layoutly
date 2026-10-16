@@ -1,0 +1,130 @@
+{
+  "name": "nested-auto",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "column",
+            "name": "column",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 600,
+              "height": 500
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "row",
+                "name": "row",
+                "type": "FRAME",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 600,
+                  "height": 80
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.96,
+                      "g": 0.97,
+                      "b": 0.99,
+                      "a": 1
+                    }
+                  }
+                ],
+                "children": [
+                  {
+                    "id": "item-a",
+                    "name": "item-a",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 80,
+                      "height": 80
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 0.15,
+                          "g": 0.35,
+                          "b": 0.65,
+                          "a": 1
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "item-b",
+                    "name": "item-b",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": {
+                      "x": 92,
+                      "y": 0,
+                      "width": 80,
+                      "height": 80
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 0.15,
+                          "g": 0.35,
+                          "b": 0.65,
+                          "a": 1
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "layoutMode": "HORIZONTAL",
+                "itemSpacing": 12
+              }
+            ],
+            "layoutMode": "VERTICAL",
+            "itemSpacing": 16
+          }
+        ]
+      }
+    ]
+  }
+}

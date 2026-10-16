@@ -1,0 +1,116 @@
+{
+  "name": "commerce",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "type": "CANVAS",
+        "name": "Shop pages",
+        "children": [
+          {
+            "id": "shop",
+            "name": "shop",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 600
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "product",
+                "name": "product",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": {
+                  "x": 30,
+                  "y": 60,
+                  "width": 260,
+                  "height": 300
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "cart",
+            "name": "cart",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 1000,
+              "y": 0,
+              "width": 800,
+              "height": 600
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "cart-title",
+                "name": "cart-title",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 1030,
+                  "y": 40,
+                  "width": 500,
+                  "height": 48
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "characters": "Your cart",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 16,
+                  "lineHeightPx": 24
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

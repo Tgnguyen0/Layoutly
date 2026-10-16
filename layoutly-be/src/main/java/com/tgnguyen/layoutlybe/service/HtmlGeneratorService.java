@@ -137,7 +137,7 @@ public class HtmlGeneratorService {
                 }
             }
 
-            if (topFrames.size() <= 1) {
+            if (topFrames.size() <= 1 || DesignRootSelector.continuousSections(DesignNodeMapper.fromLegacy(canvas))) {
                 // Chi co 1 (hoac khong co) Frame ngoai cung -> xem nhu 1 trang hoan chinh
                 String filename = uniqueFilename(canvas, usedNames);
                 rootByFile.put(filename, canvas);
@@ -416,6 +416,7 @@ public class HtmlGeneratorService {
         boolean renderable = !"DOCUMENT".equals(node.getType()) && !"CANVAS".equals(node.getType());
         if (renderable && node.getX() != null && node.getY() != null && node.getWidth() != null && node.getHeight() != null) {
             bounds.include(node.getX(), node.getY(), node.getX() + node.getWidth(), node.getY() + node.getHeight());
+            if (Boolean.TRUE.equals(node.getClipsContent())) return;
         }
 
         for (UINode child : node.getChildren()) {

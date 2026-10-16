@@ -1,6 +1,8 @@
 # Layoutly Frontend
 
-Giao diện React + Vite + Tailwind cho **Layoutly** — công cụ khám phá cấu trúc file Figma, kết nối tới backend `layoutly-be`.
+Giao diện React + Vite + Tailwind cho **Layoutly**, kết nối backend PostgreSQL/Spring Security qua API thật.
+
+Hướng dẫn chính thức về Docker Compose, biến môi trường, migration dữ liệu cũ và tests: [PostgreSQL, Authentication và Saved Projects](../docs/LAYOUTLY_POSTGRESQL_AUTH_PROJECTS.md).
 
 ## Chạy dự án
 
@@ -36,4 +38,8 @@ src/
 - Gọi các endpoint: `/me`, `/file`, `/nodes`, `/images`, `/components`, `/styles`
 - Hiển thị kết quả dưới dạng cây có thể thu gọn/mở rộng, tô màu theo loại node Figma (CANVAS, FRAME, COMPONENT, TEXT, VECTOR...)
 - Tải kết quả xuống dạng `.txt`, `.docx`, `.pdf` (2 định dạng sau gọi qua backend)
-- Token/fileKey/nodeIds tự lưu vào `localStorage`, không cần nhập lại mỗi lần mở
+- Register/Login/Logout, Current User, Edit Profile, Change Password và email reset khi cấu hình SMTP sẵn sàng
+- Dashboard quản lý project thật: tạo, tìm kiếm, sửa/đổi tên, nhân bản, xóa mềm, mở lại và xem export history
+- Snapshot, DesignNode, assets, accepted revisions và AI conversation được liên kết với tài khoản
+- Session dùng HttpOnly cookie; Figma token chỉ ở bộ nhớ. Không lưu password/JWT trong localStorage
+- `npm run test:e2e:saved-projects` chạy luồng end-to-end với backend/PostgreSQL thật và HTTP fixture Figma

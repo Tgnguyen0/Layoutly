@@ -8,7 +8,7 @@ export default defineConfig({
     proxy: {
       // Trong dev, forward /api sang backend Spring Boot (layoutly-be) chay o port 8080
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.LAYOUTLY_API_TARGET || 'http://localhost:8080',
         changeOrigin: true,
         timeout: 300000,
         proxyTimeout: 300000,

@@ -117,7 +117,27 @@ public class RevisionManager {
         workspaceService.updateAcceptedWorkspace(snapshotId, revisionDir);
 
         saveAllHistory(snapshotId, history);
+        try {
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(
+                    workspaceService.getProjectDirectory(snapshotId).resolve("accepted_revision.json").toFile(), target);
+        } catch (Exception e) {
+            throw new RuntimeException("Khong the luu accepted revision: " + e.getMessage(), e);
+        }
         return target;
+    }
+
+    public RevisionInfo getAcceptedRevision(String snapshotId) {
+        Path current = workspaceService.getProjectDirectory(snapshotId).resolve("accepted_revision.json");
+        if (Files.isRegularFile(current)) {
+            try {
+                return objectMapper.readValue(current.toFile(), RevisionInfo.class);
+            } catch (Exception e) {
+                throw new RuntimeException("Khong the doc accepted revision: " + e.getMessage(), e);
+            }
+        }
+        // Backward compatibility for workspaces accepted before the pointer existed.
+        return getRevisionHistory(snapshotId).stream().filter(item -> "ACCEPTED".equals(item.status()))
+                .reduce((previous, next) -> next).orElse(null);
     }
 
     public synchronized RevisionInfo rejectRevision(String snapshotId, String revisionId) {
@@ -144,6 +164,14 @@ public class RevisionManager {
         return target;
     }
 
+    public synchronized void markRevisionStatus(String snapshotId, String revisionId, String status) {
+        if (!List.of("ERROR", "CANCELLED").contains(status)) throw new IllegalArgumentException("Invalid terminal revision status.");
+        List<RevisionInfo> history = getRevisionHistory(snapshotId);
+        history.replaceAll(item -> item.revisionId().equals(revisionId)
+                ? new RevisionInfo(item.revisionId(), item.parentRevisionId(), item.snapshotId(), status, item.targetFramework(), item.prompt(), item.createdAt(), item.modifiedFiles(), false, item.buildDiagnostics(), item.usage()) : item);
+        saveAllHistory(snapshotId, history);
+    }
+
     public List<CodeDiff> computeRevisionDiffs(String snapshotId, String revisionId, String targetFramework) {
         Path draftDir = workspaceService.getOrInitializeWorkspace(snapshotId, revisionId, targetFramework);
         Path acceptedDir = workspaceService.getAcceptedWorkspaceDir(snapshotId, targetFramework);
@@ -154,6 +182,10 @@ public class RevisionManager {
         List<CodeDiff> diffs = new ArrayList<>();
 
         for (String relative : draftFiles) {
+            try {
+                if (acceptedFiles.contains(relative) && java.util.Arrays.equals(workspaceService.readProjectFileBytes(draftDir, relative), workspaceService.readProjectFileBytes(acceptedDir, relative))) continue;
+            } catch (java.io.IOException e) { throw new RuntimeException("Could not compare workspace file: " + relative, e); }
+            if (!isTextSource(relative)) { diffs.add(new CodeDiff(relative, acceptedFiles.contains(relative) ? "MODIFIED" : "ADDED", null, null, "Binary asset changed", List.of())); continue; }
             String draftContent = workspaceService.readProjectFile(draftDir, relative);
             String acceptedContent = null;
             if (acceptedFiles.contains(relative)) {
@@ -167,6 +199,7 @@ public class RevisionManager {
 
         for (String relative : acceptedFiles) {
             if (!draftFiles.contains(relative)) {
+                if (!isTextSource(relative)) { diffs.add(new CodeDiff(relative, "DELETED", null, null, "Binary asset removed", List.of())); continue; }
                 String acceptedContent = workspaceService.readProjectFile(acceptedDir, relative);
                 diffs.add(patchEngine.generateDiff(relative, acceptedContent, null));
             }
@@ -174,6 +207,8 @@ public class RevisionManager {
 
         return diffs;
     }
+
+    private boolean isTextSource(String path) { return path.matches("(?i).*\\.(jsx?|tsx?|css|html?|json|md|txt|svg|ya?ml)$"); }
 
     public List<RevisionInfo> getRevisionHistory(String snapshotId) {
         Path historyFile = getHistoryFile(snapshotId);

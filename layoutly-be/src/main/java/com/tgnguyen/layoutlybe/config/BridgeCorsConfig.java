@@ -19,10 +19,15 @@ public class BridgeCorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/snapshots/**")
+                .allowedOrigins(java.util.stream.Stream.concat(java.util.Arrays.stream(allowedOrigins),
+                        java.util.stream.Stream.of("http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174")).distinct().toArray(String[]::new))
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("Content-Type", "X-Layoutly-Bridge-Token", "X-CSRF-TOKEN", "X-Figma-Token");
         registry.addMapping("/api/bridge/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "OPTIONS")
-                .allowedHeaders("Content-Type")
+                .allowedHeaders("Content-Type", "X-Layoutly-Bridge-Token", "X-CSRF-TOKEN")
                 .maxAge(3600);
     }
 }

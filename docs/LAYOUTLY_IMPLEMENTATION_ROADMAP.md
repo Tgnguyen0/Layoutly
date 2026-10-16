@@ -1,5 +1,7 @@
 # Layoutly Implementation Roadmap
 
+> Cập nhật 16/10/2026: database chính thức là PostgreSQL. Trạng thái mới của authentication, ownership và saved projects nằm trong [báo cáo triển khai PostgreSQL](LAYOUTLY_POSTGRESQL_AUTH_PROJECTS.md).
+
 Ngày lập: 2026-10-09. Trạng thái: **đề xuất để review, chưa triển khai**.
 
 Căn cứ: [LAYOUTLY_ARCHITECTURE_AUDIT.md](LAYOUTLY_ARCHITECTURE_AUDIT.md), findings A01-A20. Các test/build đã chạy trong audit nằm ở mục 8 của báo cáo; các test bên dưới là **tiêu chí cho công việc tương lai**, không phải kết quả đã đạt.

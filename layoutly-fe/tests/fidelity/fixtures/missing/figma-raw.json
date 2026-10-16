@@ -1,0 +1,80 @@
+{
+  "name": "missing",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "unknown-font",
+            "name": "unknown-font",
+            "type": "TEXT",
+            "absoluteBoundingBox": {
+              "x": 30,
+              "y": 30,
+              "width": 500,
+              "height": 100
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.15,
+                  "g": 0.35,
+                  "b": 0.65,
+                  "a": 1
+                }
+              }
+            ],
+            "characters": "Unavailable font",
+            "style": {
+              "fontFamily": "Layoutly Deliberately Missing Font",
+              "fontSize": 32,
+              "fontWeight": 400
+            }
+          },
+          {
+            "id": "missing-image",
+            "name": "missing-image",
+            "type": "RECTANGLE",
+            "absoluteBoundingBox": {
+              "x": 30,
+              "y": 180,
+              "width": 300,
+              "height": 300
+            },
+            "fills": [
+              {
+                "type": "IMAGE",
+                "imageRef": "missing",
+                "scaleMode": "FILL"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

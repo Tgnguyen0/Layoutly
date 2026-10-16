@@ -52,6 +52,12 @@ public class AssetExportService {
         return exportAssets(fileKey, token, imageNodes);
     }
 
+    public Mono<AssetBundle> exportMissingAssets(String fileKey, String token, DesignNode root, java.util.Set<String> missingIds) {
+        List<ImageNodeRef> imageNodes = new ArrayList<>();
+        collectImageNodes(root, imageNodes);
+        return exportAssets(fileKey, token, imageNodes.stream().filter(node -> missingIds.contains(node.id())).toList());
+    }
+
     private Mono<AssetBundle> exportAssets(String fileKey, String token, List<ImageNodeRef> imageNodes) {
 
         if (imageNodes.isEmpty()) {

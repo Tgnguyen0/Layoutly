@@ -15,6 +15,21 @@ import java.util.LinkedHashMap;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(com.tgnguyen.layoutlybe.service.AccountService.AccountException.class)
+    public ResponseEntity<?> accountError(com.tgnguyen.layoutlybe.service.AccountService.AccountException ex) {
+        return ResponseEntity.status(ex.status).body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<?> conflict(Exception ex) {
+        return ResponseEntity.status(409).body(Map.of("message", "Dữ liệu trùng lặp hoặc tham chiếu không hợp lệ."));
+    }
+
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<?> concurrentUpdate(Exception ex) {
+        return ResponseEntity.status(409).body(Map.of("message", "Dự án đã thay đổi. Vui lòng tải lại."));
+    }
+
     @ExceptionHandler(FigmaRateLimitException.class)
     public ResponseEntity<Map<String, Object>> handleRateLimit(FigmaRateLimitException ex) {
         Map<String, Object> body = new LinkedHashMap<>();

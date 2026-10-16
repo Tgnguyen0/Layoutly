@@ -1,0 +1,62 @@
+{
+  "name": "vectors",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "vector",
+            "name": "vector",
+            "type": "VECTOR",
+            "absoluteBoundingBox": {
+              "x": 30,
+              "y": 30,
+              "width": 200,
+              "height": 200
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.15,
+                  "g": 0.35,
+                  "b": 0.65,
+                  "a": 1
+                }
+              }
+            ],
+            "fillGeometry": [
+              {
+                "path": "M0 0L100 0L50 100Z",
+                "windingRule": "NONZERO"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

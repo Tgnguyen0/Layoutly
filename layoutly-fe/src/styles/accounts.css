@@ -1,0 +1,220 @@
+/* Account surfaces share Layoutly's navy, teal and warm paper palette. */
+.public-app { --ly-bg: #f7f8fa; --ly-border: #e4e8ec; }
+.public-app .ly-button { border-radius: 7px; min-height: 43px; }
+.public-app textarea { font: inherit; }
+.ly-header-inner { min-height: 76px; }
+.ly-desktop-nav a:first-child::after { background: #147d83; }
+.ly-hero { background: #fcfcfa; }
+.ly-hero-copy h1 { font-weight: 700; letter-spacing: -1.8px; }
+.ly-hero-copy h1 span { color: #0e737d; }
+.ly-hero-copy > p { font-size: 15px; }
+.ly-hero-notes { gap: 11px; }
+.ly-hero-notes svg { background: transparent; padding: 2px; }
+.ly-feature-item { box-shadow: none; border-radius: 8px; }
+.ly-auth-main { background: #fff; }
+.ly-auth-layout { width: 100%; max-width: 1500px; margin: auto; min-height: 100svh; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; align-items: stretch; }
+.ly-auth-intro { display: flex; flex-direction: column; min-height: 100svh; padding: 44px clamp(32px, 5vw, 82px); background: #edf3f2; border-right: 1px solid #e0e8e7; }
+.ly-auth-intro > .ly-brand { margin: 0; align-self: flex-start; }
+.ly-auth-story { margin-block: auto; padding-block: 60px; }
+.ly-auth-story .ly-eyebrow { font-size: 10px; letter-spacing: 1.3px; color: #47736e; }
+.ly-auth-intro .ly-auth-story h1 { max-width: 460px; margin-top: 22px; font-weight: 600; font-size: clamp(32px, 3.25vw, 48px); letter-spacing: -1.8px; line-height: 1.25; }
+.ly-auth-story > p { max-width: 405px; color: #607579; font-size: 14px; line-height: 1.9; margin-top: 24px; }
+.ly-auth-workflow { display: flex; align-items: center; justify-content: space-between; max-width: 430px; margin-block: 46px 24px; gap: 12px; }
+.ly-auth-workflow > div { display: flex; flex-direction: column; align-items: start; width: 115px; min-height: 122px; border: 1px solid #d6e2df; background: #f7faf9; border-radius: 8px; padding: 17px 14px; }
+.ly-auth-workflow > div > svg { color: #287f77; margin-bottom: 13px; }
+.ly-auth-workflow > svg { color: #8aa39d; flex-shrink: 0; width: 17px; }
+.ly-auth-workflow span { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ly-auth-workflow small { font-size: 10px; color: #6e827e; margin-top: 3px; white-space: nowrap; }
+.ly-auth-workflow .ly-code-symbol { font: 600 23px/25px ui-monospace, monospace; color: #287f77; margin-bottom: 13px; }
+.ly-auth-story .ly-auth-caption { font-size: 11px; color: #71857f; margin: 0; }
+.ly-auth-intro > .ly-text-link { margin: 0; color: #526e69; font-size: 12px; }
+.ly-auth-panel { align-self: center; width: min(440px, calc(100% - 88px)); margin: 50px auto; padding: 0; border: 0; box-shadow: none; border-radius: 0; }
+.ly-auth-heading { position: static; width: auto; height: auto; overflow: visible; clip-path: none; margin-bottom: 32px; }
+.ly-auth-heading h2 { font-size: 28px; letter-spacing: -.9px; font-weight: 600; }
+.ly-auth-heading p { font-size: 13px; margin-top: 10px; line-height: 1.7; }
+.ly-auth-tabs { margin-bottom: 34px; }
+.ly-auth-tabs a { font-size: 13px; padding-bottom: 15px; }
+.ly-field { margin-bottom: 20px; }
+.ly-field label { font-size: 12px; }
+.ly-input-wrap { min-height: 47px; border-color: #dce2e6; background: #fff; border-radius: 6px; }
+.ly-input-wrap:focus-within { border-color: #38867e; box-shadow: 0 0 0 3px #148f940d; }
+.ly-submit { margin-top: 8px; min-height: 46px; }
+.ly-auth-main .ly-submit:disabled { background: #36576b; opacity: .6; }
+.ly-auth-switch { font-size: 12px; margin-top: 24px !important; }
+.ly-auth-security { border-top: 1px solid #edf0f2; padding-top: 22px; margin-top: 28px; color: #77868d; font-size: 11px; }
+.ly-availability { align-items: flex-start; }
+.ly-availability > svg { flex-shrink: 0; }
+.ly-header-account { display: flex; align-items: center; gap: 9px; font-size: 12px; min-width: 0; }
+.ly-header-account > span:last-child { max-width: 130px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.ac-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 35px; width: 35px; height: 35px; background: #e0eeea; color: #25665c; border: 1px solid #d1e4dd; border-radius: 50%; font-size: 12px; font-weight: 600; }
+.account-page { min-height: 100svh; background: #f8f9fb; }
+.ac-header { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 42px; border-bottom: 1px solid var(--ly-border); background: #fff; }
+.ac-header .ly-text-link { color: #61727e; font-size: 12px; }
+.ac-layout { display: grid; grid-template-columns: 238px minmax(0, 1fr); gap: 60px; max-width: 1220px; padding: 46px 40px 64px; margin: auto; }
+.ac-sidebar { min-width: 0; padding-right: 16px; }
+.ac-identity { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 30px; }
+.ac-identity .ac-avatar { width: 54px; height: 54px; font-size: 17px; flex-basis: 54px; margin-bottom: 4px; }
+.ac-identity > strong { font-size: 14px; overflow-wrap: anywhere; }
+.ac-identity > span:last-child { font-size: 11px; color: #72818d; overflow-wrap: anywhere; }
+.ac-nav-label { font-size: 9px; letter-spacing: 1.1px; color: #87949e; padding: 0 12px; margin-bottom: 13px !important; }
+.ac-sidebar nav { display: grid; gap: 6px; }
+.ac-sidebar nav button, .ac-logout { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 6px; padding: 12px; font-size: 12px; color: #60717e; cursor: pointer; }
+.ac-sidebar nav button[aria-pressed="true"] { background: #e7efed; color: #215e55; font-weight: 600; }
+.ac-sidebar nav button > svg:last-child { margin-left: auto; }
+.ac-sidebar nav button:hover, .ac-logout:hover { background: #eef2f2; }
+.ac-logout { margin-top: 20px; border-top: 1px solid var(--ly-border); border-radius: 0; padding-top: 22px; }
+.ac-sidebar-note { border-top: 1px solid var(--ly-border); margin: 34px 12px 0; padding-top: 20px; display: flex; align-items: start; gap: 9px; color: #82928f; font-size: 10px; line-height: 1.8; }
+.ac-sidebar-note svg { flex-shrink: 0; margin-top: 2px; }
+.ac-content { min-width: 0; }
+.ac-breadcrumb { display: flex; align-items: center; gap: 10px; color: #929ca6; font-size: 11px; margin-bottom: 22px; }
+.ac-breadcrumb span { color: #63717f; }
+.ac-title { margin-bottom: 28px; }
+.ac-title h1 { font-size: 28px; font-weight: 600; letter-spacing: -.9px; }
+.ac-title p { font-size: 13px; color: #687987; margin-top: 8px; line-height: 1.8; }
+.ac-card { border: 1px solid var(--ly-border); background: #fff; border-radius: 10px; margin-bottom: 22px; overflow: hidden; }
+.ac-card-heading { padding: 24px 28px 20px; border-bottom: 1px solid #edf0f2; }
+.ac-card h2 { font-size: 16px; font-weight: 600; }
+.ac-card-heading p { font-size: 12px; color: #6e7d89; margin-top: 5px; line-height: 1.8; }
+.ac-card fieldset { border: 0; margin: 0; padding: 25px 28px 6px; min-width: 0; }
+.ac-profile-summary { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
+.ac-avatar-large { width: 60px; height: 60px; flex-basis: 60px; font-size: 19px; }
+.ac-profile-summary > div { min-width: 0; }
+.ac-profile-summary strong { font-size: 13px; overflow-wrap: anywhere; }
+.ac-profile-summary p { font-size: 10px; color: #8b959f; margin-top: 5px; }
+.ac-two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.ac-field { margin-bottom: 22px; min-width: 0; }
+.ac-field label { display: block; font-size: 12px; font-weight: 500; color: #435564; margin-bottom: 8px; }
+.ac-field input, .ac-field textarea { width: 100%; min-width: 0; border: 1px solid #dce2e7; background: #fff; border-radius: 6px; padding: 11px 12px; color: #344b5c; font-size: 14px; line-height: 1.6; }
+.ac-field textarea { resize: vertical; min-height: 108px; }
+.ac-field input:focus, .ac-field textarea:focus { border-color: #43877d; outline: 3px solid #148f940c; outline-offset: 0; }
+.ac-field input::placeholder, .ac-field textarea::placeholder { color: #a1aab2; font-size: 11px; }
+.ac-field p { color: #71818b; font-size: 11px; line-height: 1.8; margin-top: 7px; }
+.ac-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid #edf0f2; background: #fdfdfe; padding: 17px 28px; }
+.ac-card-footer > span { color: #71818b; font-size: 11px; }
+.ac-card-footer .ly-button { font-size: 11px; min-height: 37px; padding: 9px 15px; flex-shrink: 0; }
+.ac-bottom-note { display: flex; justify-content: center; align-items: center; gap: 7px; font-size: 10px; color: #97a2a9; margin-top: 26px !important; }
+.ac-content > .ly-form-notice { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.ac-sessions-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ac-sessions { margin: 0; padding: 0 28px; list-style: none; }
+.ac-sessions li { padding: 21px 0; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #edf0f2; }
+.ac-sessions li:last-child { border-bottom: 0; }
+.ac-device { width: 42px; height: 42px; background: #f0f4f5; border-radius: 7px; display: grid; place-items: center; color: #6e808b; flex-shrink: 0; }
+.ac-sessions li strong { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; font-weight: 500; }
+.ac-sessions li p { font-size: 10px; color: #8b969f; margin-top: 6px; line-height: 1.8; }
+.ac-current { color: #347e63; background: #eaf5ee; border-radius: 4px; padding: 2px 7px; font-size: 9px; font-weight: 400; }
+.ac-session-message { padding: 24px 28px; color: #788591; font-size: 12px; }
+.ac-danger { border-color: #efdfe0; }
+.ac-danger h2 { color: #99454b; }
+.public-app .ac-danger-button { color: #a13d46; border-color: #e7cdd0; background: #fff; }
+.public-app .ac-danger-button:hover { background: #fff3f3; }
+.ac-delete-dialog { width: min(460px, calc(100% - 32px)); border: 1px solid #e4e8ec; border-radius: 12px; padding: 30px; color: #102638; box-shadow: 0 24px 100px #10263825; }
+.ac-delete-dialog::backdrop { background: #10263870; }
+.ac-delete-dialog h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+.ac-delete-dialog form > p { font-size: 12px; line-height: 1.9; color: #75838c; margin-bottom: 22px; }
+.ac-dialog-actions { display: flex; justify-content: end; gap: 10px; margin-top: 24px; }
+.ac-gate { display: flex; flex-direction: column; align-items: center; gap: 22px; max-width: 550px; margin: 0 auto; padding: 110px 24px; text-align: center; }
+.ac-gate > svg { color: #40847b; }
+.ac-gate h1 { font-size: 26px; font-weight: 600; }
+.ac-gate p { color: #788591; font-size: 13px; line-height: 1.9; }
+.dashboard-page { grid-template-columns: 232px minmax(0, 1fr); background: #f8f9fb; }
+.db-sidebar { padding: 28px 16px; gap: 36px; }
+.db-nav-label { display: block; font-size: 9px; letter-spacing: 1px; color: #8b969f; margin: 0 12px 16px; }
+.db-sidebar nav > a, .db-account > a, .db-account > button { display: flex; gap: 10px; align-items: center; padding: 12px; border-radius: 6px; font-size: 12px; }
+.db-sidebar [aria-current="page"] { background: #e7efed; color: #215e55; }
+.db-sidebar nav > a:hover, .db-account > a:hover { background: #f1f5f4; color: #215e55; }
+.db-account > span { font-size: 9px; letter-spacing: 1px; color: #8b969f; }
+.db-local { border: 0; border-top: 1px solid var(--ly-border); padding: 20px 4px 0; border-radius: 0; background: #fff; }
+.db-user { display: flex; align-items: center; gap: 10px; }
+.db-user > div { min-width: 0; }
+.db-user strong, .db-user p { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-user strong { font-size: 11px; }
+.db-user p { font-size: 10px; margin-top: 3px; }
+.db-main { padding: 0 38px 38px; }
+.db-topbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 84px; border-bottom: 1px solid var(--ly-border); font-size: 10px; color: #929ca6; margin-bottom: 35px; }
+.db-topbar > a:first-child strong { font-weight: 500; color: #61727e; }
+.db-topbar-account { display: flex; align-items: center; gap: 10px; color: #61727e; }
+.db-welcome { display: block; font-size: 11px; color: #628377; margin-bottom: 10px; }
+.db-heading h1 { font-size: 28px; font-weight: 600; letter-spacing: -.8px; }
+.db-heading p { line-height: 1.8; }
+.db-search { background: #fff; }
+.db-filters { margin-top: 34px; }
+.db-filters button { background: transparent; border-color: transparent; }
+.db-filters button.is-active { color: #215e55; background: #e7efed; border-color: #dce8e3; }
+.db-empty { border: 1px dashed #d8e0e3; background: #fff; border-radius: 10px; min-height: 370px; margin-top: 24px; padding: 34px; }
+.db-empty > svg { padding: 15px; width: 70px; height: 70px; background: #f0f5f3; border: 1px solid #e3ede8; border-radius: 16px; margin-bottom: 8px; }
+.db-empty h2 { font-size: 20px; }
+.db-empty p { max-width: 400px; line-height: 1.8; }
+.db-local-notice { font-size: 10px; line-height: 1.8; }
+@media (min-width: 1600px) { .ly-auth-main { background: #edf3f2; } .ly-auth-layout { background: #fff; } }
+@media (max-width: 1100px) {
+  .ly-auth-intro { padding: 36px; }
+  .ly-auth-panel { width: calc(100% - 64px); }
+  .ac-layout { gap: 30px; grid-template-columns: 210px minmax(0, 1fr); padding-inline: 30px; }
+  .db-main { padding-inline: 26px; }
+  .db-heading { flex-wrap: wrap; }
+  .db-heading > div { width: 100%; }
+  .db-search { flex: 1; width: auto; }
+}
+@media (max-width: 900px) {
+  .ly-auth-layout { display: block; max-width: none; }
+  .ly-auth-intro { min-height: 0; padding: 22px 28px; flex-direction: row; align-items: center; justify-content: space-between; border-right: 0; border-bottom: 1px solid #e0e8e7; }
+  .ly-auth-intro > .ly-brand { margin: 0; }
+  .ly-auth-story { display: none; }
+  .ly-auth-intro > .ly-text-link { margin: 0; font-size: 10px; }
+  .ly-auth-panel { width: min(440px, calc(100% - 48px)); margin: 40px auto; }
+  .ly-auth-heading h2 { font-size: 26px; }
+  .ac-header { padding: 18px 24px; }
+  .ac-layout { grid-template-columns: 1fr; gap: 26px; padding: 28px 24px; }
+  .ac-sidebar { padding: 0; }
+  .ac-identity, .ac-nav-label, .ac-sidebar-note { display: none; }
+  .ac-sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ac-sidebar nav button { justify-content: center; font-size: 11px; padding-inline: 9px; }
+  .ac-sidebar nav button > svg:last-child { display: none; }
+  .ac-logout { width: auto; float: right; margin-top: 12px; padding: 8px; border: 0; font-size: 11px; }
+  .ac-breadcrumb { margin-bottom: 14px; }
+  .ac-title h1 { font-size: 25px; }
+  .dashboard-page { display: block; }
+  .db-sidebar { padding: 24px 16px; }
+  .db-topbar { min-height: 68px; margin-bottom: 26px; }
+}
+@media (max-width: 480px) {
+  .ly-header-inner { gap: 12px; padding-inline: 18px; }
+  .ly-header-account > span:last-child { display: none; }
+  .ly-header-actions { gap: 7px; }
+  .ly-header-actions > .ly-button { font-size: 11px; padding-inline: 10px; min-height: 38px; }
+  .ly-hero-copy h1 { letter-spacing: -1.2px; }
+  .ly-auth-intro { padding: 20px; }
+  .ly-auth-intro > .ly-text-link { font-size: 0; gap: 0; }
+  .ly-auth-intro > .ly-text-link svg { width: 20px; height: 20px; }
+  .ly-auth-panel { width: calc(100% - 40px); margin: 30px auto; }
+  .ly-auth-heading { margin-bottom: 26px; }
+  .ly-auth-heading h2 { font-size: 24px; }
+  .ly-auth-security { font-size: 10px; }
+  .ac-header { padding: 18px 20px; min-height: 76px; }
+  .ac-header .ly-brand strong { font-size: 20px; }
+  .ac-header .ly-text-link { font-size: 10px; }
+  .ac-layout { padding: 22px 16px; }
+  .ac-sidebar nav button { font-size: 10px; gap: 6px; }
+  .ac-sidebar nav button svg { width: 15px; }
+  .ac-title h1 { font-size: 24px; }
+  .ac-title p { font-size: 11px; }
+  .ac-card-heading { padding: 20px; }
+  .ac-card fieldset { padding: 20px 20px 0; }
+  .ac-two-columns { grid-template-columns: 1fr; gap: 0; }
+  .ac-card-footer { padding: 16px 20px; flex-wrap: wrap; gap: 12px; }
+  .ac-card-footer > span { width: 100%; }
+  .ac-card-footer > .ly-button { margin-left: auto; }
+  .ac-sessions { padding-inline: 20px; }
+  .ac-sessions li { align-items: start; gap: 10px; }
+  .ac-sessions li strong { font-size: 11px; gap: 5px; }
+  .ac-bottom-note { font-size: 9px; }
+  .ac-delete-dialog { padding: 24px; }
+  .db-main { padding-inline: 20px; }
+  .db-topbar-account > span:last-child { display: none; }
+  .db-heading { gap: 12px; }
+  .db-heading h1 { font-size: 26px; }
+  .db-heading p { font-size: 11px; }
+  .db-empty { padding: 24px 18px; }
+  .db-empty h2 { font-size: 18px; }
+  .db-empty p { font-size: 12px; }
+}

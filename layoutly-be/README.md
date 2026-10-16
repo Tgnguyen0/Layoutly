@@ -2,7 +2,9 @@
 
 Backend của dự án **Layoutly** — công cụ tự động chuyển đổi bản vẽ thiết kế Figma thành mã nguồn giao diện Front-end.
 
-Ở giai đoạn hiện tại, backend đảm nhiệm việc gọi Figma REST API và trả về dữ liệu JSON mô tả cấu trúc file thiết kế (Document → Canvas → Frame → Node), làm nền tảng cho module Parser/Generator sinh mã HTML/CSS ở các bước tiếp theo.
+**Cập nhật 16/10/2026:** dùng PostgreSQL, Spring Data JPA, Flyway và Spring Security. Chạy PostgreSQL trước backend; xem [hướng dẫn chạy, schema, migration dữ liệu cũ và tests](../docs/LAYOUTLY_POSTGRESQL_AUTH_PROJECTS.md). Không sử dụng MySQL.
+
+Backend hiện hỗ trợ tài khoản/session, saved projects theo owner, Figma REST/Bridge, DesignNode, HTML/CSS và React generators, AI workspace/revisions và export ZIP.
 
 ## 1. Lấy Figma Personal Access Token
 - Vào Figma > Settings > Personal access tokens > Generate new token
@@ -19,7 +21,7 @@ mvn spring-boot:run
 
 ## 4. Cách test dễ nhất: dùng trang web có sẵn
 
-Mở trình duyệt vào **http://localhost:8080** — có sẵn giao diện để nhập token, fileKey, node IDs và bấm nút xem JSON ngay, không cần Postman hay curl. Token/fileKey được lưu tạm trong trình duyệt (localStorage) nên không phải nhập lại mỗi lần.
+Sử dụng frontend tại **http://localhost:5173/#/register**, đăng nhập rồi import Figma. API yêu cầu session cookie và CSRF cho mutation. Trang static debug cũ tại backend chỉ là công cụ legacy; luồng được hỗ trợ là React frontend. UI hiện tại giữ Figma token trong bộ nhớ, không lưu credential/JWT vào localStorage.
 
 Sau khi xem kết quả, có 3 nút để tải xuống ngay dưới các nút gọi API:
 - **.txt** — tải trực tiếp trong trình duyệt, không qua server

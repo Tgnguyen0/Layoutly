@@ -1,0 +1,63 @@
+{
+  "name": "unicode",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "vietnamese",
+            "name": "vietnamese",
+            "type": "TEXT",
+            "absoluteBoundingBox": {
+              "x": 24,
+              "y": 24,
+              "width": 360,
+              "height": 350
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.15,
+                  "g": 0.35,
+                  "b": 0.65,
+                  "a": 1
+                }
+              }
+            ],
+            "characters": "Tiếng Việt: thiết kế, xuất mã, đăng nhập. 👋 日本語\nDòng thứ hai — nội dung dài để kiểm tra xuống dòng Tiếng Việt: thiết kế, xuất mã, đăng nhập. 👋 日本語\nDòng thứ hai — nội dung dài để kiểm tra xuống dòng Tiếng Việt: thiết kế, xuất mã, đăng nhập. 👋 日本語\nDòng thứ hai — nội dung dài để kiểm tra xuống dòng Tiếng Việt: thiết kế, xuất mã, đăng nhập. 👋 日本語\nDòng thứ hai — nội dung dài để kiểm tra xuống dòng ",
+            "style": {
+              "fontFamily": "Inter",
+              "fontWeight": 400,
+              "fontSize": 16,
+              "lineHeightPx": 24
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

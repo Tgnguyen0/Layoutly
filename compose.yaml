@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-layoutly}
+      POSTGRES_USER: ${DATABASE_USER:-layoutly}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - layoutly_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-layoutly} -d ${POSTGRES_DB:-layoutly}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  layoutly_postgres:

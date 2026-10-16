@@ -14,15 +14,15 @@ for (const width of [1440, 1280, 1024, 768, 390]) {
     await openSnapshot(page)
     await expect(page.locator('iframe[title="Snapshot preview"]')).toHaveAttribute('sandbox', 'allow-scripts')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    await page.getByRole('button', { name: 'Mở hoặc đóng Layoutly AI' }).click()
-    await expect(page.getByLabel('Yêu cầu AI', { exact: true })).toBeDisabled()
+    if (await page.locator('.we-ai-slot').isHidden()) await page.getByRole('button', { name: 'Mở hoặc đóng Layoutly AI' }).click()
+    await expect(page.getByRole('button', { name: 'Gửi yêu cầu AI', exact: true })).toBeDisabled()
     await page.getByRole('button', { name: 'Đóng AI Chat' }).click()
     if (width < 900) {
       await page.getByRole('button', { name: 'Mở hoặc đóng layers' }).click()
       await expect(page.getByRole('complementary', { name: 'Pages và Layers' })).toBeVisible()
       await page.getByRole('button', { name: 'Đóng layers', exact: true }).click()
       await page.getByRole('button', { name: 'Mở hoặc đóng inspector' }).click()
-      await expect(page.getByRole('region', { name: 'Mã nguồn sinh ra' })).toBeVisible()
+      await expect(page.getByRole('region', { name: 'Thuộc tính node' })).toBeVisible()
       await page.getByRole('button', { name: 'Mở hoặc đóng inspector' }).click()
     }
     await page.screenshot({ path: testInfo.outputPath(`editor-${width}.png`) })
@@ -60,7 +60,9 @@ test('node selection, isolation, viewport, code and real ZIP downloads', async (
   const scale = await page.locator('iframe[title="Snapshot preview"]').evaluate(element => new DOMMatrix(getComputedStyle(element).transform).a)
   // CDP reports unscaled child coordinates for a CSS-transformed iframe.
   await page.mouse.click(frameBox.x + local.x * scale, frameBox.y + local.y * scale)
+  await page.getByRole('button', { name: 'Mở hoặc đóng inspector' }).click()
   await expect(page.locator('.we-selected-name')).toBeVisible()
+  await page.getByRole('button', { name: 'Mở hoặc đóng inspector' }).click()
   await expect(frame.locator('.layoutly-selected')).toHaveCount(1)
   const child = page.frames().find(value => value !== page.mainFrame() && value.url() === 'about:srcdoc')
   expect(await child.evaluate(() => { try { return Boolean(parent.document.body) } catch { return false } })).toBe(false)

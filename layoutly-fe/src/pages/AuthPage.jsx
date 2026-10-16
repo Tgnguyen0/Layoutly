@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Download, Eye, EyeOff, FolderCheck, Info, LoaderCircle, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Info, Layers3, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import Brand from '../components/public/Brand.jsx'
-import ProductShowcase from '../components/public/ProductShowcase.jsx'
+import { useAccount } from '../contexts/AccountContext.jsx'
 import { accountCapabilities, submitAccountForm, UNAVAILABLE_ACCOUNTS, validateAccountForm } from '../lib/accounts.js'
 
 const texts = {
@@ -12,6 +12,7 @@ const texts = {
 const emptyValues = { name: '', email: '', password: '', confirmPassword: '', remember: false, consent: false }
 
 export default function AuthPage({ mode }) {
+  const { setUser } = useAccount()
   const [values, setValues] = useState(emptyValues)
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
@@ -72,7 +73,7 @@ export default function AuthPage({ mode }) {
       if (controller.signal.aborted) return
       setValues(current => ({ ...current, password: '', confirmPassword: '' }))
       if (mode === 'forgot') setNotice({ error: false, text: 'Nếu email đã được đăng ký, bạn sẽ nhận được liên kết đặt lại mật khẩu.' })
-      else window.location.hash = '#workspace'
+      else { setUser(result.user); window.location.hash = '#/dashboard' }
     } catch (error) {
       if (submission.current === controller) setNotice({ error: true, text: error.name === 'AbortError' ? 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.' : error.message })
     } finally {
@@ -97,16 +98,13 @@ export default function AuthPage({ mode }) {
     <div className="ly-container ly-auth-layout">
       <section className="ly-auth-intro" aria-labelledby="auth-intro-title">
         <Brand />
-        <span className="ly-eyebrow">{mode === 'register' ? 'Bắt đầu hành trình mới' : 'Chào mừng trở lại'}</span>
-        <h1 id="auth-intro-title">{mode === 'register' ? 'Không gian cho thiết kế của bạn' : 'Đăng nhập để tiếp tục'}</h1>
-        <p>Truy cập thiết kế và xuất mã nguồn của bạn. Tài khoản và chỉnh sửa bằng AI chưa khả dụng.</p>
-        <ul className="ly-auth-benefits">
-          <li><FolderCheck size={19} /><div><strong>Lưu dự án của bạn <small>Sắp có</small></strong><span>Truy cập từ mọi thiết bị</span></div></li>
-          <li><Sparkles size={19} /><div><strong>Chỉnh sửa bằng AI <small>Sắp có</small></strong><span>Đề xuất thay đổi theo thiết kế</span></div></li>
-          <li><Download size={19} /><div><strong>Xuất code dễ dàng</strong><span>HTML/CSS, React, kèm assets</span></div></li>
-        </ul>
-        <ProductShowcase compact />
-        <a href="/#workspace" className="ly-text-link">Tiếp tục với workspace cục bộ <ArrowRight size={17} /></a>
+        <div className="ly-auth-story"><span className="ly-eyebrow">THIẾT KẾ CỦA BẠN. MÃ NGUỒN CỦA BẠN.</span>
+          <h1 id="auth-intro-title">Ý tưởng tốt xứng đáng được thành hình.</h1>
+          <p>Đưa thiết kế Figma vào một không gian làm việc, xem giao diện và xuất mã nguồn để tiếp tục xây dựng.</p>
+          <div className="ly-auth-workflow" aria-label="Quy trình thiết kế"><div><Layers3 size={25} /><span>Thiết kế</span><small>Figma</small></div><ArrowRight size={20} /><div><span className="ly-code-symbol">&lt;/&gt;</span><span>Phát triển</span><small>HTML · React</small></div><ArrowRight size={20} /><div><Check size={25} /><span>Sẵn sàng</span><small>Mã nguồn của bạn</small></div></div>
+          <p className="ly-auth-caption">Từ những chi tiết nhỏ, đến một sản phẩm hoàn chỉnh.</p>
+        </div>
+        <a href="/" className="ly-text-link"><ArrowLeft size={16} />Quay lại trang chủ</a>
       </section>
 
       <section className="ly-auth-panel" aria-labelledby="auth-form-title">
@@ -123,7 +121,7 @@ export default function AuthPage({ mode }) {
           {notice && <div className={`ly-form-notice ${notice.error ? 'ly-notice-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.text}</div>}
           <button className="ly-button ly-button-primary ly-submit" type="submit" disabled={busy || checking || !enabled}>{busy || checking ? <LoaderCircle size={17} className="ly-spinner" /> : null}{busy ? 'Đang xử lý…' : content.action}</button>
         </form>
-        {!checking && !enabled && <div className="ly-availability" role="status"><Info size={18} /><div><strong>{capabilityError || 'Dịch vụ tài khoản chưa khả dụng'}</strong><p>Workspace cục bộ vẫn mở được mà không cần tài khoản.</p></div>{capabilityError && <button type="button" className="ly-icon-button" title="Thử kết nối lại" aria-label="Thử kết nối lại" onClick={() => setAttempt(x => x + 1)}><RefreshCw size={16} /></button>}</div>}
+        {!checking && !enabled && <div className="ly-availability" role="status"><Info size={18} /><div><strong>{capabilityError || (mode === 'forgot' ? 'Khôi phục mật khẩu qua email chưa khả dụng' : 'Dịch vụ tài khoản chưa khả dụng')}</strong><p>{mode === 'forgot' ? 'Chức năng gửi email khôi phục chưa được thiết lập. Nếu còn đăng nhập ở thiết bị khác, bạn có thể đổi mật khẩu trong mục Bảo mật.' : 'Kiểm tra backend rồi thử kết nối lại.'}</p></div><button type="button" className="ly-icon-button" title="Thử kết nối lại" aria-label="Thử kết nối lại" onClick={() => setAttempt(x => x + 1)}><RefreshCw size={16} /></button></div>}
         <p className="ly-auth-switch">{mode === 'login' ? <>Chưa có tài khoản? <a href="/#/register">Đăng ký ngay</a></> : <>Đã có tài khoản? <a href="/#/login">Đăng nhập</a></>}</p>
         <div className="ly-auth-security"><ShieldCheck size={15} /><span>Không lưu mật khẩu trên trình duyệt.</span></div>
       </section>

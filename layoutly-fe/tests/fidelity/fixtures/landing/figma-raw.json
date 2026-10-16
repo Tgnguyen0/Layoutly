@@ -1,0 +1,133 @@
+{
+  "name": "landing",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "hero",
+            "name": "hero",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 200
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "headline",
+                "name": "headline",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 30,
+                  "y": 40,
+                  "width": 700,
+                  "height": 48
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "characters": "Layoutly original fixture",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 16,
+                  "lineHeightPx": 24
+                }
+              }
+            ]
+          },
+          {
+            "id": "features",
+            "name": "features",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 200,
+              "width": 800,
+              "height": 200
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": []
+          },
+          {
+            "id": "footer",
+            "name": "footer",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 400,
+              "width": 800,
+              "height": 200
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

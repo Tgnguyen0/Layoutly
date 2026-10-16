@@ -190,27 +190,29 @@ public class FigmaService {
      * fileKey lay tu URL: figma.com/file/{fileKey}/ten-file
      */
     public Mono<String> getFile(String fileKey, String tokenOverride) {
-        String cacheKey = "file:" + fileKey;
+        String scopedFile = scope(tokenOverride) + "-" + fileKey;
+        String cacheKey = "file:" + scopedFile;
         CachedFile memoryCached = responseCache.get(cacheKey);
         if (memoryCached != null) {
-            writePersistentFile(fileKey, memoryCached.json());
+            writePersistentFile(scopedFile, memoryCached.json());
             return Mono.just(memoryCached.json());
         }
 
-        Optional<String> diskCached = readPersistentFile(fileKey);
+        Optional<String> diskCached = readPersistentFile(scopedFile);
         if (diskCached.isPresent()) {
             responseCache.put(cacheKey, new CachedFile(diskCached.get(), System.currentTimeMillis()));
             return Mono.just(diskCached.get());
         }
 
         return callFigma("/files/" + fileKey, tokenOverride)
-                .doOnNext(json -> cacheFileResponse(fileKey, json));
+                .doOnNext(json -> cacheFileResponse(scopedFile, json));
     }
 
     /** Import/refresh path: bypasses the old short-lived response cache. */
     public Mono<String> fetchFileFresh(String fileKey, String tokenOverride) {
+        String scopedFile = scope(tokenOverride) + "-" + fileKey;
         return callFigma("/files/" + fileKey, tokenOverride)
-                .doOnNext(json -> cacheFileResponse(fileKey, json));
+                .doOnNext(json -> cacheFileResponse(scopedFile, json));
     }
 
     /**
@@ -218,7 +220,7 @@ public class FigmaService {
      * nodeIds cach nhau boi dau phay, vi du: "1:2,1:3"
      */
     public Mono<String> getFileNodes(String fileKey, String nodeIds, String tokenOverride) {
-        return cachedCall("nodes:" + fileKey + ":" + nodeIds,
+        return cachedCall(scope(tokenOverride) + ":nodes:" + fileKey + ":" + nodeIds,
                 callFigma("/files/" + fileKey + "/nodes?ids=" + nodeIds, tokenOverride));
     }
 
@@ -230,7 +232,7 @@ public class FigmaService {
      * la noi giam rui ro khoa tai khoan nhieu nhat.
      */
     public Mono<String> getImages(String fileKey, String nodeIds, String format, String tokenOverride) {
-        return cachedCall("images:" + fileKey + ":" + nodeIds + ":" + format,
+        return cachedCall(scope(tokenOverride) + ":images:" + fileKey + ":" + nodeIds + ":" + format,
                 callFigma("/images/" + fileKey + "?ids=" + nodeIds + "&format=" + format, tokenOverride));
     }
 
@@ -238,14 +240,14 @@ public class FigmaService {
      * Lay danh sach components trong file
      */
     public Mono<String> getFileComponents(String fileKey, String tokenOverride) {
-        return cachedCall("components:" + fileKey, callFigma("/files/" + fileKey + "/components", tokenOverride));
+        return cachedCall(scope(tokenOverride) + ":components:" + fileKey, callFigma("/files/" + fileKey + "/components", tokenOverride));
     }
 
     /**
      * Lay danh sach styles (color, text, effect styles) trong file
      */
     public Mono<String> getFileStyles(String fileKey, String tokenOverride) {
-        return cachedCall("styles:" + fileKey, callFigma("/files/" + fileKey + "/styles", tokenOverride));
+        return cachedCall(scope(tokenOverride) + ":styles:" + fileKey, callFigma("/files/" + fileKey + "/styles", tokenOverride));
     }
 
     /**
@@ -345,6 +347,10 @@ public class FigmaService {
     private void cacheFileResponse(String fileKey, String json) {
         responseCache.put("file:" + fileKey, new CachedFile(json, System.currentTimeMillis()));
         writePersistentFile(fileKey, json);
+    }
+
+    private String scope(String token) {
+        return AccountService.digest(resolveToken(token));
     }
 
     private Optional<String> readPersistentFile(String fileKey) {

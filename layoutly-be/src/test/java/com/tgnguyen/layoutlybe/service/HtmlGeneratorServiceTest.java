@@ -8,6 +8,16 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class HtmlGeneratorServiceTest {
+    @Test void clippedFrameKeepsItsPageSizeWhenImagesExtendBeyondTheFrame() throws Exception {
+        DesignNode root = new FigmaParserService().parseDesignTree("""
+                {"document":{"id":"frame","name":"Screen","type":"FRAME","clipsContent":true,
+                  "absoluteBoundingBox":{"x":-720,"y":-512,"width":1920,"height":4600},"children":[
+                  {"id":"sky","type":"RECTANGLE","absoluteBoundingBox":{"x":-720,"y":-912,"width":1920,"height":1513}}]}}
+                """);
+        assertThat(new HtmlGeneratorService().generate(root)).contains("--figma-height: 4600.0", "--figma-offset-y: -512.0")
+                .doesNotContain("--figma-height: 5000.0");
+        assertThat(new ReactGeneratorService().generate(root)).contains("--figma-height").doesNotContain("5000.0");
+    }
     @Test
     void exportsASelectedCanvasOrFrameWithoutLosingItsRootOrStyles() throws Exception {
         DesignNode canvas = new FigmaParserService().parseDesignTree("""

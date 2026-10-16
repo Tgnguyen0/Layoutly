@@ -1,0 +1,130 @@
+{
+  "name": "navigation",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "Prototype",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "first",
+            "name": "first",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 600
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "next",
+                "name": "next",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": {
+                  "x": 30,
+                  "y": 40,
+                  "width": 200,
+                  "height": 60
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "interactions": [
+                  {
+                    "trigger": {
+                      "type": "ON_CLICK"
+                    },
+                    "actions": [
+                      {
+                        "type": "NODE",
+                        "navigation": "NAVIGATE",
+                        "destinationId": "second"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "second",
+            "name": "second",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 1000,
+              "y": 0,
+              "width": 800,
+              "height": 600
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "destination",
+                "name": "destination",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 1030,
+                  "y": 40,
+                  "width": 400,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "characters": "Destination",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 16,
+                  "lineHeightPx": 24
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

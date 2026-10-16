@@ -33,6 +33,9 @@ public class FixtureService {
         }
 
         try {
+            Files.createDirectories(fixtureRoot);
+            // A fixture may contain reviewed reference images: never overwrite any existing case.
+            Files.createDirectory(caseDirectory);
             Path assetDirectory = caseDirectory.resolve("assets");
             Files.createDirectories(assetDirectory);
             SnapshotResponse metadata = SnapshotResponse.from(
@@ -49,6 +52,8 @@ public class FixtureService {
                 Files.write(assetDirectory.resolve(fileName), entry.getValue());
             }
             return caseDirectory;
+        } catch (java.nio.file.FileAlreadyExistsException exception) {
+            throw new IllegalArgumentException("Test fixture da ton tai; hay chon ten moi: " + safeName);
         } catch (Exception exception) {
             throw new RuntimeException("Khong the luu test fixture: " + exception.getMessage(), exception);
         }

@@ -90,4 +90,18 @@ class RevisionManagerTest {
         RevisionInfo rejected = revisionManager.rejectRevision(snapshotId, draft.revisionId());
         assertEquals("REJECTED", rejected.status());
     }
+
+    @Test
+    void persistsMostRecentlyAcceptedRevisionEvenWhenItWasCreatedEarlier() {
+        var first = revisionManager.createDraftWorkspace(snapshotId, "First draft", "REACT");
+        workspaceService.writeProjectFile(first.workspaceDir(), "src/App.jsx", "export default function App() { return 'first'; }");
+        var second = revisionManager.createDraftWorkspace(snapshotId, "Second draft", "REACT");
+        workspaceService.writeProjectFile(second.workspaceDir(), "src/App.jsx", "export default function App() { return 'second'; }");
+        revisionManager.acceptRevision(snapshotId, second.revisionId(), "REACT");
+        revisionManager.acceptRevision(snapshotId, first.revisionId(), "REACT");
+        RevisionManager restored = new RevisionManager(workspaceService, new CodePatchEngine(), new ObjectMapper().findAndRegisterModules());
+        assertEquals(first.revisionId(), restored.getAcceptedRevision(snapshotId).revisionId());
+        assertTrue(workspaceService.readProjectFile(workspaceService.getAcceptedWorkspaceDir(snapshotId, "REACT"), "src/App.jsx").contains("'first'"));
+        assertEquals(2, restored.getRevisionHistory(snapshotId).stream().filter(item -> "ACCEPTED".equals(item.status())).count());
+    }
 }

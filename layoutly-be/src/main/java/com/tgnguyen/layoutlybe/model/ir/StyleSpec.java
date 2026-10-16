@@ -9,6 +9,7 @@ import java.util.List;
 @Builder
 public class StyleSpec {
     String backgroundColor;
+    String backgroundGradient;
     String borderColor;
     Double borderWidth;
     Double opacity;
@@ -21,6 +22,7 @@ public class StyleSpec {
     String textAlign;
     String textAutoResize;
     String fontStyle;
+    String textCase;
     List<Double> cornerRadii;
     List<ShadowSpec> shadows;
     Boolean clipsContent;

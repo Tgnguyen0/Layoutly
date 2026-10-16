@@ -1,5 +1,7 @@
 # Layoutly Phase 1 Visual Fix
 
+> Cập nhật 16/10/2026: backend tài khoản, đăng nhập/đăng ký, hồ sơ và bảo mật đã được bổ sung sau giai đoạn này. Xem [Tài khoản và giao diện Layoutly](LAYOUTLY_ACCOUNTS_AND_UI.md) cho trạng thái hiện tại và hướng dẫn chạy. Các ghi chú “tài khoản chưa khả dụng” bên dưới là trạng thái lịch sử của Phase 1.
+
 Ngày: 2026-10-09. Phạm vi: frontend hiện có; không thay backend, schema, generators hoặc hai plugin. Đây là triển khai UI, không phải Layout Inference Engine hay tích hợp AI.
 
 ## 1. Xem Kết Quả

@@ -77,12 +77,18 @@ class SnapshotControllerTest {
                 .contains("<title>Horizontal Row</title>")
                 .contains("data-figma-name=\"Horizontal Row\"");
         controller.getPreview(id, 1440).block();
+        var response = controller.previewResponse(id, 1440, null).block();
+        assertThat(response.getHeaders().getFirst("Server-Timing")).contains("select;dur=", "assets;dur=", "embed;dur=", "html;dur=", "css;dur=", "preview;dur=");
+        assertThat(response.getHeaders().getFirst("X-Layoutly-Root-Id")).isEqualTo("2:0");
+        assertThat(response.getHeaders().getFirst("X-Layoutly-Node-Count")).isEqualTo("1");
+        assertThat(response.getHeaders().getFirst("X-Layoutly-Missing-Assets")).isEqualTo("0");
         controller.export(id, "HTML", "AUTO").block();
         controller.export(id, "REACT", "AUTO").block();
 
         verify(figmaService, times(1)).getFile(eq("file-key"), any());
         verify(assetService, times(1)).exportAssets(eq("file-key"), any(), any(com.tgnguyen.layoutlybe.model.ir.DesignNode.class));
-        verify(assetService, times(1)).getPreviewImageUrls(eq("file-key"), any(), any(com.tgnguyen.layoutlybe.model.ir.DesignNode.class));
+        // Preview now uses durable snapshot assets, not transient external image URLs.
+        verify(assetService, times(0)).getPreviewImageUrls(eq("file-key"), any(), any(com.tgnguyen.layoutlybe.model.ir.DesignNode.class));
     }
 
     @Test

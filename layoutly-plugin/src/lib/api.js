@@ -1,5 +1,8 @@
 export const API_ORIGIN = 'http://localhost:8080'
 const BASE = API_ORIGIN + '/api/figma'
+let bridgeConnectionCode = ''
+export function setBridgeConnectionCode(value) { bridgeConnectionCode = value.trim() }
+const bridgeHeaders = () => ({ 'X-Layoutly-Bridge-Token': bridgeConnectionCode })
 
 async function request(path, { token } = {}) {
   const headers = {}
@@ -81,13 +84,14 @@ export async function importSelection({ meta, json, assets, reference }) {
   if (reference) fd.append('referenceImage', new Blob([reference], { type: 'image/png' }), 'reference.png')
   for (const a of assets) fd.append('assets', new Blob([a.bytes], { type: 'image/png' }), a.fileName)
 
-  const res = await fetch(`${API}/bridge/import`, { method: 'POST', body: fd })
+  if (!bridgeConnectionCode) throw new Error('Tạo mã kết nối trong Layoutly → Import → Figma Bridge rồi dán vào plugin.')
+  const res = await fetch(`${API}/bridge/import`, { method: 'POST', headers: bridgeHeaders(), body: fd })
   if (!res.ok) throw await readError(res)
   return res.json()
 }
 
 async function getText(path) {
-  const res = await fetch(API + path)
+  const res = await fetch(API + path, { headers: bridgeHeaders() })
   if (!res.ok) throw await readError(res)
   return res.text()
 }
@@ -113,7 +117,7 @@ export async function fetchSnapshotPreview(id) {
 
 export async function downloadSnapshotZip(id, type = 'AUTO', format = 'HTML') {
   const res = await fetch(
-    `${API}/snapshots/${id}/export?format=${encodeURIComponent(format)}&type=${encodeURIComponent(type)}`
+    `${API}/snapshots/${id}/export?format=${encodeURIComponent(format)}&type=${encodeURIComponent(type)}`, { headers: bridgeHeaders() }
   )
   if (!res.ok) throw await readError(res)
   const name = format === 'REACT' ? 'layoutly-react-export.zip' : 'layoutly-html-css-export.zip'

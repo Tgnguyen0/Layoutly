@@ -39,14 +39,9 @@ public class SandboxedExecutionService {
             return new BuildResult(false, -1, "", "Workspace directory does not exist", List.of("Thu muc workspace khong ton tai."));
         }
 
-        // Check if Node/NPM available in environment for full build runner
-        boolean hasNode = isCommandAvailable("node");
-
-        if (hasNode) {
-            return runNodeValidation(normalizedDir, targetFramework);
-        } else {
-            return runFallbackValidation(normalizedDir, targetFramework);
-        }
+        // No OS/container sandbox is installed. Never execute project npm scripts
+        // or launch Node from an AI-controlled directory on the host.
+        return runFallbackValidation(normalizedDir, targetFramework);
     }
 
     public BuildResult runTests(Path workspaceDir, String targetFramework) {
@@ -125,7 +120,8 @@ public class SandboxedExecutionService {
             for (Path file : files) {
                 String relative = workspaceDir.relativize(file).toString().replace('\\', '/');
                 if (!pathGuard.isSafeRelativePath(relative)) continue;
-
+                if (!relative.matches("(?i).*\\.(jsx?|tsx?|css|html?)$")) continue;
+                if (Files.size(file) > 2_000_000) { errors.add("Source exceeds 2MB validation limit: " + relative); continue; }
                 String content = Files.readString(file, StandardCharsets.UTF_8);
 
                 if (relative.endsWith(".jsx") || relative.endsWith(".js")) {
@@ -144,7 +140,7 @@ public class SandboxedExecutionService {
         return new BuildResult(
                 success,
                 success ? 0 : 1,
-                success ? "All files syntax & structure OK" : "",
+                success ? "STATIC_VALIDATION_ONLY: lightweight syntax and structure checks passed. No npm scripts, production build, or project tests were executed." : "",
                 String.join("\n", errors),
                 errors
         );

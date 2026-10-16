@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-10-16T08:39:16.502Z",
+  "origin": "Actual Layoutly UI and backend-generated previews; original authored demo data; no personal projects",
+  "sourceRevision": "layoutly-marketing-v1",
+  "fixtures": [
+    {
+      "id": "atlas",
+      "name": "Atlas — Landing page",
+      "rootId": "screen"
+    },
+    {
+      "id": "commerce",
+      "name": "Sneaker — E-commerce",
+      "rootId": "screen"
+    },
+    {
+      "id": "dashboard",
+      "name": "Forma — Dashboard",
+      "rootId": "screen"
+    },
+    {
+      "id": "forms",
+      "name": "Serein — Form đăng nhập",
+      "rootId": "screen"
+    }
+  ]
+}

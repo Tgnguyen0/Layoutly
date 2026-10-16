@@ -1,0 +1,403 @@
+[
+  {
+    "schemaVersion": 1,
+    "id": "landing",
+    "category": "landing-sections",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "landing/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "commerce",
+    "category": "ecommerce-multipage",
+    "displayRootId": "shop",
+    "expectedPages": 2,
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "commerce/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "dashboard",
+    "category": "dashboard-cards",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "dashboard/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "form",
+    "category": "forms",
+    "set": "validation",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "form/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "nested-auto",
+    "category": "nested-auto-layout",
+    "set": "holdout",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "nested-auto/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "grid",
+    "category": "grid-spans",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "grid/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "negative-gap",
+    "category": "negative-spacing",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "negative-gap/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "overlays",
+    "category": "absolute-overlays",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "overlays/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "mixed-text",
+    "category": "mixed-typography",
+    "set": "validation",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "mixed-text/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "effects",
+    "category": "gradients-blur-shadows",
+    "set": "holdout",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "effects/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "masks",
+    "category": "masks-clips",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "masks/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "vectors",
+    "category": "svg-vectors",
+    "assets": {
+      "vector": "triangle.svg"
+    },
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "vectors/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "image-children",
+    "category": "image-filled-frame-children",
+    "assets": {
+      "photo-frame": "triangle.svg"
+    },
+    "assetProvenance": "rasterized-subtree",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "image-children/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "responsive",
+    "category": "desktop-tablet-mobile",
+    "viewports": [
+      1440,
+      1280,
+      1024,
+      768,
+      430,
+      390,
+      375
+    ],
+    "expectedLayout": "LEGACY_SCALED_FIXED",
+    "set": "validation",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "responsive/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "navigation",
+    "category": "prototype-navigation",
+    "displayRootId": "first",
+    "expectedPages": 2,
+    "expectedNavigation": [
+      {
+        "from": "next",
+        "to": "second"
+      }
+    ],
+    "set": "holdout",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "navigation/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "components",
+    "category": "component-instances-variants",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "components/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "medium",
+    "category": "large-node-tree",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "medium/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "large",
+    "category": "large-node-tree",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "large/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "transforms",
+    "category": "nested-transforms",
+    "set": "validation",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "transforms/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "unicode",
+    "category": "long-unicode-vietnamese",
+    "set": "holdout",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "unicode/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "missing",
+    "category": "missing-font-assets",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "missing/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "fixed-flex",
+    "category": "fixed-flex-overflow",
+    "set": "development",
+    "license": "CC0-1.0",
+    "provenance": "original-authored-synthetic-not-exported-from-Figma",
+    "sourceRevision": "layoutly-authored-v1",
+    "raw": "fixed-flex/figma-raw.json",
+    "rootId": "root",
+    "viewport": {
+      "width": 800,
+      "height": 600
+    },
+    "reference": null,
+    "fontManifest": []
+  }
+]

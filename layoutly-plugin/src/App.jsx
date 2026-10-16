@@ -13,6 +13,7 @@ import {
   LinkIcon,
 } from '@heroicons/react/24/outline'
 import { downloadSnapshotZip, fetchSnapshotPreview, importSelection, snapshotApi } from './lib/api.js'
+import { setBridgeConnectionCode } from './lib/api.js'
 
 const VIEWPORTS = [
   { key: 'desktop', label: 'Desktop', width: 1440 },
@@ -172,6 +173,7 @@ export default function App() {
   const [status, setStatus] = useState('')
   const reqRef = useRef(0)
   const [retry, setRetry] = useState(0)
+  const [connectionCode, setConnectionCode] = useState('')
 
   const structure = snapshot?.structure || {}
   // Chưa chọn gì thì xem trước cả page
@@ -184,7 +186,7 @@ export default function App() {
 
   // Tự đồng bộ khi mở plugin / đổi selection / đổi phạm vi
   useEffect(() => {
-    if (!selectionReady) return
+    if (!selectionReady || !connectionCode.trim()) return
     const timer = setTimeout(() => {
       const requestId = ++reqRef.current
       setSyncing(true)
@@ -192,7 +194,7 @@ export default function App() {
       parent.postMessage({ pluginMessage: { type: 'export', scope: effectiveScope, requestId } }, '*')
     }, 500)
     return () => clearTimeout(timer)
-  }, [selectionReady, syncKey, retry])
+  }, [selectionReady, syncKey, retry, connectionCode])
 
   useEffect(() => {
     async function onMessage(e) {
@@ -266,6 +268,7 @@ export default function App() {
   return (
     <main className="flex h-full flex-col bg-[#f4f7fb] text-slate-950">
       <Header connected={Boolean(snapshot)} />
+      <label className="flex flex-none items-center gap-2 bg-white px-3 py-2 text-xs">Mã kết nối Layoutly<input type="password" autoComplete="off" value={connectionCode} onChange={event => { setConnectionCode(event.target.value); setBridgeConnectionCode(event.target.value) }} placeholder="Import → Figma Bridge → Tạo mã" className="min-w-0 flex-1 rounded border p-2" /></label>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
         {(error || status) && (

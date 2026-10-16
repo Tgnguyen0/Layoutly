@@ -212,6 +212,7 @@ public class FigmaParserService {
         JsonNode textStyle = node.get("style");
         return StyleSpec.builder()
                 .backgroundColor(extractColor(node.get("fills")))
+                .backgroundGradient(extractLinearGradient(node))
                 .borderColor(extractColor(node.get("strokes")))
                 .borderWidth(doubleOf(node, "strokeWeight"))
                 .opacity(doubleOf(node, "opacity"))
@@ -224,6 +225,7 @@ public class FigmaParserService {
                 .textAlign(textOf(textStyle, "textAlignHorizontal"))
                 .textAutoResize(textOf(textStyle, "textAutoResize"))
                 .fontStyle(textOf(textStyle, "fontStyle"))
+                .textCase(textOf(textStyle, "textCase"))
                 .cornerRadii(parseCornerRadii(node))
                 .shadows(parseShadows(node))
                 .clipsContent(booleanOf(node, "clipsContent"))
@@ -391,6 +393,37 @@ public class FigmaParserService {
             JsonNode color = paint.get("color");
             String cssColor = colorOf(color, doubleOf(paint, "opacity"));
             if (cssColor != null) return cssColor;
+        }
+        return null;
+    }
+
+    private String extractLinearGradient(JsonNode node) {
+        JsonNode fills = node.get("fills");
+        if (fills == null || !fills.isArray()) return null;
+        for (JsonNode paint : fills) {
+            if (!isVisible(paint) || !"GRADIENT_LINEAR".equals(textOf(paint, "type"))) continue;
+            JsonNode handles = paint.path("gradientHandlePositions"), stops = paint.path("gradientStops");
+            if (!handles.isArray() || handles.size() < 2 || !stops.isArray() || stops.size() < 2) continue;
+            double width = node.path("absoluteBoundingBox").path("width").asDouble(1);
+            double height = node.path("absoluteBoundingBox").path("height").asDouble(1);
+            double startX = handles.get(0).path("x").asDouble() * width;
+            double startY = handles.get(0).path("y").asDouble() * height;
+            double dx = handles.get(1).path("x").asDouble() * width - startX;
+            double dy = handles.get(1).path("y").asDouble() * height - startY;
+            double length = Math.hypot(dx, dy);
+            if (length < .000001) continue;
+            double ux = dx / length, uy = dy / length;
+            double cssLength = Math.abs(width * ux) + Math.abs(height * uy);
+            if (cssLength < .000001) continue;
+            double offset = (startX - width / 2) * ux + (startY - height / 2) * uy + cssLength / 2;
+            double angle = (Math.toDegrees(Math.atan2(ux, -uy)) + 360) % 360;
+            List<String> colors = new ArrayList<>();
+            for (JsonNode stop : stops) {
+                String color = colorOf(stop.get("color"), doubleOf(paint, "opacity"));
+                if (color != null) colors.add(String.format(java.util.Locale.ROOT, "%s %.4f%%", color,
+                        (offset + stop.path("position").asDouble() * length) / cssLength * 100));
+            }
+            if (colors.size() >= 2) return String.format(java.util.Locale.ROOT, "linear-gradient(%.4fdeg, %s)", angle, String.join(", ", colors));
         }
         return null;
     }

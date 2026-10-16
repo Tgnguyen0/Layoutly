@@ -34,8 +34,6 @@ public class FigmaSnapshotService {
     private final Map<String, Mono<FigmaSnapshot>> importFlights = new ConcurrentHashMap<>();
     private final Map<String, Mono<FigmaSnapshot>> refreshFlights = new ConcurrentHashMap<>();
     private final Map<String, Mono<AssetExportService.AssetBundle>> assetFlights = new ConcurrentHashMap<>();
-    private final Map<String, Map<String, String>> previewUrlsByKey = new ConcurrentHashMap<>();
-    private final Map<String, Mono<Map<String, String>>> previewUrlFlights = new ConcurrentHashMap<>();
 
     @Autowired
     public FigmaSnapshotService(FigmaService figmaService,
@@ -72,7 +70,9 @@ public class FigmaSnapshotService {
                 : findByImportKey(cacheKey);
         if (cached.isPresent()) {
             rememberToken(cached.get().getSnapshotId(), token);
-            return Mono.just(cached.get());
+            FigmaSnapshot snapshot = cached.get();
+            return hasText(token) && !snapshot.getImageNodeIds().isEmpty()
+                    ? retryMissingAssets(snapshot, token) : Mono.just(snapshot);
         }
 
         return importFlights.computeIfAbsent(cacheKey, key ->
@@ -89,6 +89,27 @@ public class FigmaSnapshotService {
 
     public Mono<FigmaSnapshot> getOrImportByFileKey(String fileKey, String token) {
         return importSnapshot(fileKey, token);
+    }
+
+    /** HTTP imports always get a private snapshot ID. Raw Figma cache is token-scoped. */
+    public Mono<FigmaSnapshot> importPrivateSnapshot(String fileKey, String nodeId, String token) {
+        String key = normalizeFileKey(fileKey);
+        return figmaService.getFile(key, token)
+                .map(raw -> createSnapshot(UUID.randomUUID().toString(), key, normalizeNodeId(nodeId), raw))
+                .doOnNext(snapshot -> storeSnapshot(snapshot, token));
+    }
+
+    public FigmaSnapshot copySnapshot(String id) {
+        FigmaSnapshot original = requireSnapshot(id);
+        String nextId = UUID.randomUUID().toString();
+        FigmaSnapshot copy = new FigmaSnapshot(nextId, original.getSource(), original.getFileKey(),
+                original.getFileName(), original.getFigmaVersion(), original.getLastModified(), Instant.now(),
+                original.getPageName(), original.getRootNodeId(), original.getRootNodeName(), original.getRootNodeType(),
+                original.getReferenceImagePath(), original.getWarnings(), original.getRawJson(),
+                objectMapper.convertValue(original.getDesignIr(), DesignNode.class), original.getImageNodeIds());
+        copy.cacheAssets(original.getAssets());
+        storeSnapshot(copy, tokenBySnapshotId.get(id), storageService.referenceImage(id));
+        return copy;
     }
 
     public Mono<FigmaSnapshot> refresh(String snapshotId, String token) {
@@ -138,6 +159,14 @@ public class FigmaSnapshotService {
             return Mono.just(new AssetExportService.AssetBundle(Map.of(), Map.of()));
         }
 
+        Optional<AssetExportService.AssetBundle> reusable = storageService.findReusableAssets(
+                snapshot.getFileKey(), snapshot.getFigmaVersion(), snapshot.getImageNodeIds());
+        if (reusable.isPresent()) {
+            snapshot.cacheAssets(reusable.get());
+            storageService.saveAssets(snapshot, reusable.get());
+            return Mono.just(reusable.get());
+        }
+
         return assetFlights.computeIfAbsent(snapshotId, id ->
                 assetExportService.exportAssets(
                                 snapshot.getFileKey(),
@@ -153,29 +182,54 @@ public class FigmaSnapshotService {
 
     public Mono<Map<String, String>> getPreviewImageUrls(String snapshotId, DesignNode previewRoot) {
         FigmaSnapshot snapshot = requireSnapshot(snapshotId);
-        if (snapshot.getAssets() != null) {
-            return Mono.just(toLocalPreviewUrls(snapshot));
+        if (snapshot.getImageNodeIds().isEmpty()) return Mono.just(Map.of());
+        // Another import may have recovered a missing image for this same immutable Figma version.
+        if (snapshot.getAssets() != null && missingAssets(previewRoot, snapshot.getAssets().cssUrlByNodeId()) > 0) {
+            storageService.findReusableAssets(snapshot.getFileKey(), snapshot.getFigmaVersion(), snapshot.getImageNodeIds())
+                    .filter(reusable -> reusable.cssUrlByNodeId().size() > snapshot.getAssets().cssUrlByNodeId().size())
+                    .ifPresent(reusable -> { snapshot.cacheAssets(reusable); storageService.saveAssets(snapshot, reusable); });
         }
-        if (snapshot.getSource() == ImportSource.FIGMA_PLUGIN) return Mono.just(Map.of());
-
-        String cacheKey = previewCacheKey(snapshotId, previewRoot);
-        Map<String, String> cached = previewUrlsByKey.get(cacheKey);
-        if (cached != null) return Mono.just(cached);
-
-        return previewUrlFlights.computeIfAbsent(cacheKey, key ->
-                assetExportService.getPreviewImageUrls(
-                                snapshot.getFileKey(),
-                                tokenBySnapshotId.get(snapshotId),
-                                previewRoot)
-                        .doOnNext(urls -> previewUrlsByKey.put(key, Map.copyOf(urls)))
-                        .onErrorResume(err -> Mono.just(Map.of()))
-                        .doFinally(signal -> previewUrlFlights.remove(key))
-                        .cache());
+        // Persist bytes before rendering, so reload/restart cannot turn the preview into missing images.
+        // Propagate failures instead of presenting a successful, blank design.
+        return getAssets(snapshotId).map(assets -> {
+            if (snapshot.getSource() == ImportSource.FIGMA_REST && assets.cssUrlByNodeId().isEmpty())
+                throw new IllegalStateException("Chưa tải được ảnh thiết kế. Hãy nhập lại cùng URL và Figma token để tải tài nguyên.");
+            return toLocalPreviewUrls(snapshot);
+        });
     }
 
     public Map<String, String> getLocalAssetUrls(String snapshotId) {
         FigmaSnapshot snapshot = requireSnapshot(snapshotId);
         return snapshot.getAssets() == null ? Map.of() : toLocalPreviewUrls(snapshot);
+    }
+
+    private Mono<FigmaSnapshot> retryMissingAssets(FigmaSnapshot snapshot, String token) {
+        return getAssets(snapshot.getSnapshotId()).flatMap(existing -> {
+            java.util.Set<String> missing = new java.util.LinkedHashSet<>(snapshot.getImageNodeIds());
+            missing.removeAll(existing.cssUrlByNodeId().keySet());
+            if (missing.isEmpty()) return Mono.just(snapshot);
+            return assetExportService.exportMissingAssets(snapshot.getFileKey(), token, snapshot.getDesignIr(), missing)
+                    .map(downloaded -> {
+                        Map<String, String> paths = new java.util.LinkedHashMap<>(existing.cssUrlByNodeId());
+                        Map<String, byte[]> files = new java.util.LinkedHashMap<>(existing.zipAssetByPath());
+                        paths.putAll(downloaded.cssUrlByNodeId()); files.putAll(downloaded.zipAssetByPath());
+                        AssetExportService.AssetBundle combined = new AssetExportService.AssetBundle(paths, files);
+                        snapshot.cacheAssets(combined);
+                        storageService.saveAssets(snapshot, combined);
+                        return snapshot;
+                    });
+        });
+    }
+
+    public int missingPreviewAssets(String snapshotId, DesignNode root) {
+        FigmaSnapshot snapshot = requireSnapshot(snapshotId);
+        return missingAssets(root, snapshot.getAssets() == null ? Map.of() : snapshot.getAssets().cssUrlByNodeId());
+    }
+
+    private int missingAssets(DesignNode node, Map<String, String> urls) {
+        if (node == null || (node.getStyle() != null && Boolean.FALSE.equals(node.getStyle().getVisible()))) return 0;
+        if (node.getAsset() != null && node.getAsset().exportAsImage()) return urls.containsKey(node.getId()) ? 0 : 1;
+        return node.getChildren() == null ? 0 : node.getChildren().stream().mapToInt(child -> missingAssets(child, urls)).sum();
     }
 
     public FigmaSnapshot storeImportedSnapshot(FigmaSnapshot snapshot,
@@ -229,7 +283,6 @@ public class FigmaSnapshotService {
     }
 
     private void storeSnapshot(FigmaSnapshot snapshot, String token, byte[] referenceImage) {
-        clearPreviewCache(snapshot.getSnapshotId());
         snapshotsById.put(snapshot.getSnapshotId(), snapshot);
         if (snapshot.getSource() == ImportSource.FIGMA_REST && hasText(snapshot.getFileKey())) {
             rememberSnapshotKey(snapshot);
@@ -269,20 +322,11 @@ public class FigmaSnapshotService {
         if (hasText(token)) tokenBySnapshotId.put(snapshotId, token);
     }
 
-    private String previewCacheKey(String snapshotId, DesignNode previewRoot) {
-        String nodeId = previewRoot == null || !hasText(previewRoot.getId()) ? "root" : previewRoot.getId();
-        return snapshotId + "::" + nodeId;
-    }
-
-    private void clearPreviewCache(String snapshotId) {
-        String prefix = snapshotId + "::";
-        previewUrlsByKey.keySet().removeIf(key -> key.startsWith(prefix));
-        previewUrlFlights.keySet().removeIf(key -> key.startsWith(prefix));
-    }
-
     private Optional<FigmaSnapshot> findByImportKey(String importKey) {
         String snapshotId = snapshotIdByFileKey.get(importKey);
-        return snapshotId == null ? Optional.empty() : Optional.of(requireSnapshot(snapshotId));
+        if (snapshotId != null) return Optional.of(requireSnapshot(snapshotId));
+        String[] parts = importKey.split("::", 2);
+        return parts.length == 2 ? storageService.findLatestRestSnapshotId(parts[0], parts[1]).map(this::requireSnapshot) : Optional.empty();
     }
 
     private void rememberSnapshotKey(FigmaSnapshot snapshot) {

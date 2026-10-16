@@ -24,6 +24,7 @@ import { downloadSnapshotExport, snapshotApi } from './lib/api.js'
 import WorkspaceEditor from './pages/WorkspaceEditor.jsx'
 import { readRoute } from './lib/routes.js'
 import PublicSite from './pages/PublicSite.jsx'
+import RequireAccount from './components/RequireAccount.jsx'
 
 const VIEWPORTS = [
   { key: 'desktop', label: 'Desktop', width: 1440 },
@@ -799,6 +800,6 @@ export default function App() {
     }
   }, [])
   const previewMatch = window.location.pathname.match(/^\/preview\/([^/]+)$/)
-  if (previewMatch) return <PreviewPage snapshotId={previewMatch[1]} />
-  return route === '/workspace' ? <WorkspaceEditor /> : route === '/workspace-legacy' ? <WorkspaceApp /> : <PublicSite route={route} />
+  if (previewMatch) return <RequireAccount><PreviewPage snapshotId={previewMatch[1]} /></RequireAccount>
+  return route === '/workspace' ? <RequireAccount><WorkspaceEditor /></RequireAccount> : route === '/workspace-legacy' ? <RequireAccount><WorkspaceApp /></RequireAccount> : <PublicSite route={route} />
 }

@@ -16,6 +16,11 @@ import java.util.Set;
 @Service
 public class ReactGeneratorService {
 
+    @org.springframework.beans.factory.annotation.Value("${layoutly.renderer.page-consistency:false}")
+    private boolean pageConsistency;
+    public ReactGeneratorService() { }
+    public ReactGeneratorService(boolean pageConsistency) { this.pageConsistency = pageConsistency; }
+
     // Ten component khong duoc trung voi ten da dung trong App.jsx (export default function App).
     private static final Set<String> RESERVED_COMPONENT_NAMES = Set.of("App");
 
@@ -200,6 +205,7 @@ public class ReactGeneratorService {
     }
 
     private List<DesignNode> findPageRoots(DesignNode root) {
+        if (pageConsistency) return DesignRootSelector.exportPages(root);
         if (root == null) return List.of();
         List<DesignNode> pages = new ArrayList<>();
         for (DesignNode child : childrenOf(root)) {
@@ -229,6 +235,7 @@ public class ReactGeneratorService {
         if (renderable && bounds != null && bounds.x() != null && bounds.y() != null
                 && bounds.width() != null && bounds.height() != null) {
             result.include(bounds.x(), bounds.y(), bounds.x() + bounds.width(), bounds.y() + bounds.height());
+            if (node.getStyle() != null && Boolean.TRUE.equals(node.getStyle().getClipsContent())) return;
         }
         for (DesignNode child : childrenOf(node)) collectBounds(child, result);
     }

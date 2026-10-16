@@ -9,7 +9,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800
       await page.goto(path)
       await expect(page.locator('.public-app')).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
-      if (name !== 'landing') await expect(page.getByText('Dịch vụ tài khoản chưa khả dụng', { exact: true })).toBeVisible()
+      if (name === 'forgot') await expect(page.getByText('Khôi phục mật khẩu qua email chưa khả dụng', { exact: true })).toBeVisible()
+      else if (name !== 'landing') await expect(page.getByRole('button', { name: name === 'login' ? 'Đăng nhập' : 'Tạo tài khoản', exact: true })).toBeEnabled()
       const metrics = await page.evaluate(async () => {
         const images = [...document.querySelectorAll('.public-app img')]
         await Promise.all(images.map(image => image.decode()))
@@ -31,7 +32,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800
           expect(next.y).toBeLessThan(viewport.height)
         }
       }
-      if (name !== 'landing') await expect(page.locator('.ly-auth-intro h1')).toContainText(name === 'register' ? 'Không gian cho thiết kế' : 'Đăng nhập để tiếp tục')
+      if (name !== 'landing' && viewport.width > 800) await expect(page.locator('.ly-auth-intro h1')).toContainText('Ý tưởng tốt')
       const screenshot = testInfo.outputPath(`${name}-${viewport.width}.png`)
       await page.screenshot({ path: screenshot, fullPage: true })
       await testInfo.attach(`${name}-${viewport.width}`, { path: screenshot, contentType: 'image/png' })
@@ -41,6 +42,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800
 }
 
 test('public links, validation, unavailable authentication and keyboard navigation', async ({ page }) => {
+  await page.route('**/api/auth/capabilities', route => route.fulfill({ status: 404, body: '{}' }))
   const credentialRequests = []
   page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/auth/')) credentialRequests.push(request.url()) })
   await page.goto('/#/login')

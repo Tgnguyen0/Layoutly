@@ -1,0 +1,94 @@
+{
+  "name": "components",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "instance",
+            "name": "instance",
+            "type": "INSTANCE",
+            "absoluteBoundingBox": {
+              "x": 30,
+              "y": 30,
+              "width": 300,
+              "height": 200
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "variant-text",
+                "name": "variant-text",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 50,
+                  "y": 50,
+                  "width": 240,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "characters": "Primary variant",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 16,
+                  "lineHeightPx": 24
+                }
+              }
+            ],
+            "componentId": "component-1",
+            "componentProperties": {
+              "State": {
+                "type": "VARIANT",
+                "value": "Active"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

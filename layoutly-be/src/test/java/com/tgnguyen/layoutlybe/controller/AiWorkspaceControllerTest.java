@@ -26,7 +26,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AiWorkspaceController.class)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 class AiWorkspaceControllerTest {
+    @MockBean private com.tgnguyen.layoutlybe.config.SnapshotAuthorizationConfig authorization;
+    @MockBean private com.tgnguyen.layoutlybe.service.SavedProjectService savedProjects;
+    @MockBean private com.tgnguyen.layoutlybe.service.AiConversationService conversations;
+    @MockBean private com.tgnguyen.layoutlybe.service.AccountService accounts;
 
     @Autowired
     private MockMvc mockMvc;
@@ -39,6 +44,9 @@ class AiWorkspaceControllerTest {
 
     @MockBean
     private ProjectWorkspaceService workspaceService;
+
+    @MockBean
+    private com.tgnguyen.layoutlybe.service.ai.AiAgentJobService jobs;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -58,6 +66,31 @@ class AiWorkspaceControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.snapshotId").value("snap_12345678"))
                 .andExpect(jsonPath("$.available").value(false));
+    }
+
+    @Test
+    void listsFilesAndReadsExactRevisionBytes() throws Exception {
+        java.nio.file.Path root = java.nio.file.Path.of("test-workspace");
+        RevisionInfo revision = new RevisionInfo("rev_001", null, "snap_12345678", "DRAFT", "REACT",
+                "test", Instant.now(), List.of("src/App.jsx"), true, "", AiUsage.empty());
+        when(revisionManager.getRevisionHistory("snap_12345678")).thenReturn(List.of(revision));
+        when(workspaceService.getOrInitializeWorkspace("snap_12345678", "rev_001", "REACT")).thenReturn(root);
+        when(workspaceService.listProjectFiles(root)).thenReturn(List.of("src/App.jsx"));
+        when(workspaceService.readProjectFileBytes(root, "src/App.jsx")).thenReturn("revision source".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        mockMvc.perform(get("/api/snapshots/snap_12345678/ai/files").param("revisionId", "rev_001"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0]").value("src/App.jsx"));
+        mockMvc.perform(get("/api/snapshots/snap_12345678/ai/file").param("revisionId", "rev_001").param("path", "src/App.jsx"))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("revision source"));
+        mockMvc.perform(get("/api/snapshots/snap_12345678/ai/file").param("revisionId", "rev_001").param("path", "../outside"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rejectsUnknownRevisionSourceAccess() throws Exception {
+        when(revisionManager.getRevisionHistory("snap_12345678")).thenReturn(List.of());
+        mockMvc.perform(get("/api/snapshots/snap_12345678/ai/files").param("revisionId", "../../outside"))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verify(workspaceService, org.mockito.Mockito.never()).getOrInitializeWorkspace(any(), any(), any());
     }
 
     @Test

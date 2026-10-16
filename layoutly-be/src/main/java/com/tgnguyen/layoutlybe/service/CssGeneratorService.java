@@ -397,6 +397,14 @@ import java.util.Map;
 @Service
 public class CssGeneratorService {
 
+    @org.springframework.beans.factory.annotation.Value("${layoutly.renderer.css-corrections:false}")
+    private boolean cssCorrections;
+
+    public CssGeneratorService() { }
+
+    /** Explicit capability flag for measurement/rollout; legacy output is the default. */
+    public CssGeneratorService(boolean cssCorrections) { this.cssCorrections = cssCorrections; }
+
     // Nguong de coi 1 node "khong set Constraints ro rang" la khoi full-bleed
     // (anh nen, dai mau nen...) va tu dong cho co gian full-width thay vi ket px.
     private static final double FULL_BLEED_RATIO_THRESHOLD = 0.95;
@@ -513,8 +521,12 @@ public class CssGeneratorService {
         double nodeStart = horizontal ? bounds.x() : bounds.y();
         double nodeSize = (horizontal ? bounds.width() : bounds.height()) != null
                 ? (horizontal ? bounds.width() : bounds.height()) : 0;
-        double parentStart = horizontal ? parentBounds.x() : parentBounds.y();
-        double parentSize = horizontal ? parentBounds.width() : parentBounds.height();
+        Double parentStartValue = horizontal ? parentBounds.x() : parentBounds.y();
+        double parentStart = cssCorrections && (parentStartValue == null || !Double.isFinite(parentStartValue))
+                ? 0 : parentStartValue;
+        Double parentSizeValue = horizontal ? parentBounds.width() : parentBounds.height();
+        double parentSize = cssCorrections && (parentSizeValue == null || !Double.isFinite(parentSizeValue))
+                ? 0 : parentSizeValue;
 
         String constraint = horizontal
                 ? layoutOf(node).getConstraints().horizontal()
@@ -543,8 +555,14 @@ public class CssGeneratorService {
                 // Khong xuat width/height - de 2 canh tu keo gian
             }
             case "SCALE" -> {
-                css.append("  ").append(leading).append(": ").append(round(leadOffset / parentSize * 100)).append("%;\n");
-                css.append("  ").append(sizeProp).append(": ").append(round(nodeSize / parentSize * 100)).append("%;\n");
+                if (cssCorrections && parentSize <= 0) {
+                    // A percentage has no meaningful denominator. Preserve finite source pixels.
+                    css.append("  ").append(leading).append(": ").append(round(leadOffset)).append("px;\n");
+                    css.append("  ").append(sizeProp).append(": ").append(round(Math.max(0, nodeSize))).append("px;\n");
+                } else {
+                    css.append("  ").append(leading).append(": ").append(round(leadOffset / parentSize * 100)).append("%;\n");
+                    css.append("  ").append(sizeProp).append(": ").append(round(nodeSize / parentSize * 100)).append("%;\n");
+                }
             }
             default -> { // LEFT / TOP - Figma khong bat buoc nguoi dung phai set constraint,
                 // nen day la truong hop pho bien nhat trong thuc te. Rieng truc ngang: neu
@@ -572,7 +590,10 @@ public class CssGeneratorService {
         css.append("  flex-direction: ")
                 .append(layout.getDirection() == Direction.COLUMN ? "column" : "row")
                 .append(";\n");
-        if (layout.getGap() != null) css.append("  gap: ").append(round(layout.getGap())).append("px;\n");
+        if (layout.getGap() != null) {
+            double gap = cssCorrections && layout.getGap() < 0 ? 0 : layout.getGap();
+            css.append("  gap: ").append(round(gap)).append("px;\n");
+        }
         writePadding(layout.getPadding(), css);
         css.append("  justify-content: ").append(toJustifyContent(layout.getMainAxisAlignment())).append(";\n");
         css.append("  align-items: ").append(toAlignItems(layout.getCrossAxisAlignment())).append(";\n");
@@ -603,6 +624,9 @@ public class CssGeneratorService {
         if (Boolean.TRUE.equals(style.getClipsContent())) css.append("  overflow: hidden;\n");
 
         String imageUrl = imageUrlByNodeId.get(node.getId());
+        if ((imageUrl == null || imageUrl.isBlank()) && style.getBackgroundGradient() != null) {
+            css.append("  background-image: ").append(style.getBackgroundGradient()).append(";\n");
+        }
         if (imageUrl != null && !imageUrl.isBlank() && !hasExpandedRenderBounds(node)) {
             css.append("  background-image: url(\"").append(escapeCssUrl(imageUrl)).append("\");\n");
             css.append("  background-size: cover;\n");
@@ -670,8 +694,19 @@ public class CssGeneratorService {
                 css.append("  font-style: italic;\n");
             }
             if (style.getFontFamily() != null) {
+                String family = style.getFontFamily().toLowerCase(java.util.Locale.ROOT);
+                boolean serif = family.matches(".*(chronicle|georgia|times|garamond|baskerville|bodoni|playfair|merriweather).*" );
                 css.append("  font-family: '").append(escapeCssString(style.getFontFamily()))
-                        .append("', sans-serif;\n");
+                        .append(serif ? "', Georgia, 'Times New Roman', serif;\n" : "', sans-serif;\n");
+            }
+            if (style.getTextCase() != null) {
+                String transform = switch (style.getTextCase()) {
+                    case "UPPER" -> "uppercase";
+                    case "LOWER" -> "lowercase";
+                    case "TITLE" -> "capitalize";
+                    default -> null;
+                };
+                if (transform != null) css.append("  text-transform: ").append(transform).append(";\n");
             }
             if (style.getFontSize() != null) css.append("  font-size: ").append(round(style.getFontSize())).append("px;\n");
             if (style.getFontWeight() != null) css.append("  font-weight: ").append(style.getFontWeight().intValue()).append(";\n");
@@ -722,6 +757,16 @@ public class CssGeneratorService {
 
         if (inFlex) {
             Direction parentDirection = layoutOf(parent).getDirection();
+            if (cssCorrections) {
+                SizingMode mainMode = parentDirection == Direction.ROW ? sizing.getHorizontal() : sizing.getVertical();
+                if (mainMode == SizingMode.FIXED) css.append("  flex-shrink: 0;\n");
+                LayoutSpec parentLayout = layoutOf(parent);
+                if (parentLayout.getGap() != null && parentLayout.getGap() < 0 && !parentLayout.isWrap()
+                        && hasEarlierFlowSibling(node, parent)) {
+                    css.append(parentDirection == Direction.COLUMN ? "  margin-top: " : "  margin-left: ")
+                            .append(round(parentLayout.getGap())).append("px;\n");
+                }
+            }
             boolean fillsMainAxis = parentDirection == Direction.ROW
                     ? sizing.getHorizontal() == SizingMode.FILL
                     : sizing.getVertical() == SizingMode.FILL;
@@ -742,6 +787,16 @@ public class CssGeneratorService {
         } else if (fixedValue != null) {
             css.append("  ").append(property).append(": ").append(round(fixedValue)).append("px;\n");
         }
+    }
+
+    private boolean hasEarlierFlowSibling(DesignNode node, DesignNode parent) {
+        boolean seen = false;
+        for (DesignNode sibling : childrenOf(parent)) {
+            if (sibling == node) return seen;
+            if (!Boolean.FALSE.equals(styleOf(sibling).getVisible())
+                    && layoutOf(sibling).getPositioning() != Positioning.ABSOLUTE) seen = true;
+        }
+        return false;
     }
 
     private void writeOptionalDimension(String property, Double value, StringBuilder css) {

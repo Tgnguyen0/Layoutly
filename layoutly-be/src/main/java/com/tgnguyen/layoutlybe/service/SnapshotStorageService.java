@@ -89,6 +89,14 @@ public class SnapshotStorageService {
     }
 
     public Optional<String> findLatestRestSnapshotId(String fileKey) {
+        return findLatestRestSnapshotId(fileKey, metadata -> "DOCUMENT".equals(metadata.rootNodeType()));
+    }
+
+    public Optional<String> findLatestRestSnapshotId(String fileKey, String nodeId) {
+        return findLatestRestSnapshotId(fileKey, metadata -> java.util.Objects.equals(nodeId, metadata.rootNodeId()));
+    }
+
+    private Optional<String> findLatestRestSnapshotId(String fileKey, java.util.function.Predicate<StoredSnapshotMetadata> matchesRoot) {
         if (fileKey == null || fileKey.isBlank() || !Files.isDirectory(snapshotRoot)) return Optional.empty();
         try (var directories = Files.list(snapshotRoot)) {
             return directories
@@ -97,6 +105,7 @@ public class SnapshotStorageService {
                     .flatMap(Optional::stream)
                     .filter(metadata -> metadata.source() == ImportSource.FIGMA_REST)
                     .filter(metadata -> fileKey.equals(metadata.fileKey()))
+                    .filter(matchesRoot)
                     .max((left, right) -> createdAt(left).compareTo(createdAt(right)))
                     .map(StoredSnapshotMetadata::snapshotId);
         } catch (Exception exception) {
@@ -106,6 +115,35 @@ public class SnapshotStorageService {
 
     public boolean exists(String snapshotId) {
         return Files.isRegularFile(snapshotDirectory(snapshotId).resolve(METADATA_FILE));
+    }
+
+    public byte[] referenceImage(String snapshotId) {
+        Path file = snapshotDirectory(snapshotId).resolve("reference.png");
+        try { return Files.isRegularFile(file) ? Files.readAllBytes(file) : null; }
+        catch (java.io.IOException ex) { throw new IllegalStateException("Cannot copy reference image.", ex); }
+    }
+
+    /** Reuse only assets from the identical Figma file version, never a different design revision. */
+    public Optional<AssetExportService.AssetBundle> findReusableAssets(String fileKey, String version, List<String> nodeIds) {
+        if (fileKey == null || version == null || version.isBlank() || "unknown".equals(version)
+                || !Files.isDirectory(snapshotRoot)) return Optional.empty();
+        Map<String, String> paths = new LinkedHashMap<>();
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        try (var directories = Files.list(snapshotRoot)) {
+            directories.filter(Files::isDirectory).forEach(directory -> readMetadata(directory.resolve(METADATA_FILE))
+                    .filter(m -> m.source() == ImportSource.FIGMA_REST && fileKey.equals(m.fileKey()) && version.equals(m.figmaVersion()))
+                    .ifPresent(metadata -> {
+                        AssetExportService.AssetBundle assets = loadAssets(directory, metadata);
+                        if (assets == null) return;
+                        assets.cssUrlByNodeId().forEach((id, path) -> {
+                            if (nodeIds.contains(id) && assets.zipAssetByPath().containsKey(path)) {
+                                paths.put(id, path);
+                                files.put(path, assets.zipAssetByPath().get(path));
+                            }
+                        });
+                    }));
+        } catch (Exception exception) { return Optional.empty(); }
+        return files.isEmpty() ? Optional.empty() : Optional.of(new AssetExportService.AssetBundle(paths, files));
     }
 
     private AssetExportService.AssetBundle loadAssets(Path directory, StoredSnapshotMetadata metadata) {
@@ -120,9 +158,13 @@ public class SnapshotStorageService {
                 // One damaged optional asset must not make the complete design snapshot unreadable.
             }
         }
-        return new AssetExportService.AssetBundle(
-                metadata.assetPathsByNodeId() == null ? Map.of() : new LinkedHashMap<>(metadata.assetPathsByNodeId()),
-                files);
+        Map<String, String> paths = new LinkedHashMap<>();
+        if (metadata.assetPathsByNodeId() != null) metadata.assetPathsByNodeId().forEach((id, path) -> {
+            if (files.containsKey(path)) paths.put(id, path);
+        });
+        // An empty REST snapshot has not downloaded its images yet. It is not a completed cache.
+        if (metadata.source() == ImportSource.FIGMA_REST && !safeList(metadata.imageNodeIds()).isEmpty() && paths.isEmpty()) return null;
+        return new AssetExportService.AssetBundle(paths, files);
     }
 
     private void writeMetadata(FigmaSnapshot snapshot) throws Exception {

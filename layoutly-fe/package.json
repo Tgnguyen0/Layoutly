@@ -8,7 +8,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm --prefix tooling/tests test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:saved-projects": "playwright test --config playwright.saved-projects.config.js",
+    "test:fidelity:metrics": "node --test tests/fidelity/metrics.test.mjs",
+    "test:fidelity:build": "node tests/fidelity/prepare-exports.mjs",
+    "test:fidelity": "playwright test --config playwright.fidelity.config.js",
+    "test:fidelity:compare": "node tests/fidelity/compare-runs.mjs",
+    "predev": "node scripts/build-preview-runtime.mjs",
+    "prebuild": "node scripts/build-preview-runtime.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
@@ -16,7 +23,9 @@
     "lucide-react": "^0.400.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-hot-toast": "^2.6.0"
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^6.30.6",
+    "sucrase": "^3.35.1"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
@@ -26,7 +35,11 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "esbuild": "0.21.5",
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0",
     "postcss": "^8.4.39",
+    "ssim.js": "3.5.0",
     "tailwindcss": "^3.4.6",
     "vite": "^5.3.4"
   }

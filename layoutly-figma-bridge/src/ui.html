@@ -59,6 +59,8 @@
 
   <label class="label" for="backend-url">Backend URL</label>
   <input id="backend-url" type="url" value="http://localhost:8080" spellcheck="false">
+  <label class="label" for="bridge-token" style="margin-top:12px">Layoutly connection code (from Import → Figma Bridge)</label>
+  <input id="bridge-token" type="password" autocomplete="off" spellcheck="false" style="width:100%;height:34px" placeholder="Valid for 10 minutes">
   <button id="sync" class="primary" type="button" style="margin-top: 14px">Sync to Layoutly</button>
 
   <div id="progress" class="progress" aria-live="polite">
@@ -124,7 +126,9 @@
           form.append('assets', new Blob([asset.bytes], { type: asset.contentType }), asset.fileName)
         }
 
-        const response = await fetch(`${data.backendUrl}/api/bridge/import`, { method: 'POST', body: form })
+        const connectionCode = document.getElementById('bridge-token').value.trim()
+        if (!connectionCode) throw new Error('Create a connection code in the signed-in Layoutly workspace first.')
+        const response = await fetch(`${data.backendUrl}/api/bridge/import`, { method: 'POST', headers: { 'X-Layoutly-Bridge-Token': connectionCode }, body: form })
         const body = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(body.error || body.message || `Backend returned HTTP ${response.status}`)
 

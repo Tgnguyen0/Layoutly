@@ -32,6 +32,7 @@ public class UINode {
 
     // Mau nen - dang chuoi CSS san sang dung, vd "rgba(232, 163, 61, 1.00)"
     private String backgroundColor;
+    private String backgroundGradient;
 
     // Do trong 0.0 - 1.0
     private Double opacity;
@@ -52,6 +53,7 @@ public class UINode {
     private String textAlign;
     private String textAutoResize;
     private String fontStyle;
+    private String textCase;
     private List<Double> cornerRadii;
     private List<ShadowSpec> shadows;
     private Boolean clipsContent;

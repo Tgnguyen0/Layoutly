@@ -2,11 +2,14 @@ const BASE = '/api'
 
 async function request(path, { token, method = 'GET', body } = {}) {
   const headers = {}
+  if (!['GET', 'HEAD'].includes(method)) Object.assign(headers, await csrfHeaders())
   if (token) headers['X-Figma-Token'] = token
   if (body) headers['Content-Type'] = 'application/json'
 
   const res = await fetch(BASE + path, {
     method,
+    credentials: 'same-origin',
+    cache: 'no-store',
     headers,
     body: body ? JSON.stringify(body) : undefined,
   })
@@ -23,6 +26,7 @@ async function request(path, { token, method = 'GET', body } = {}) {
     const message = parsed?.message || parsed?.error || text || `HTTP ${res.status}`
     const error = new Error(message)
     error.code = parsed?.code
+    error.status = res.status
     error.retryAfterSeconds = parsed?.retryAfterSeconds
     error.retryAt = parsed?.retryAt
     error.planTier = parsed?.planTier
@@ -32,6 +36,20 @@ async function request(path, { token, method = 'GET', body } = {}) {
   }
 
   return { raw: text, json: parsed, status: res.status }
+}
+
+export { request as apiRequest }
+let csrfFlight = null
+export async function csrfHeaders() {
+  // Concurrent first mutations must share one handshake while the browser receives JSESSIONID.
+  if (!csrfFlight) csrfFlight = (async () => {
+    const response = await fetch('/api/auth/csrf', { credentials: 'same-origin', cache: 'no-store' })
+    if (!response.ok) throw new Error('Không thể khởi tạo phiên bảo mật.')
+    const csrf = await response.json()
+    if (csrf.headerName !== 'X-CSRF-TOKEN' || !csrf.token) throw new Error('Phiên bảo mật không hợp lệ.')
+    return { 'X-CSRF-TOKEN': csrf.token }
+  })().finally(() => { csrfFlight = null })
+  return csrfFlight
 }
 
 export const figmaApi = {
@@ -54,7 +72,8 @@ export const figmaApi = {
 export async function exportFile(type, filename, content) {
   const res = await fetch(`${BASE}/export/${type}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...await csrfHeaders() },
     body: JSON.stringify({ filename, content }),
   })
   if (!res.ok) {
@@ -128,11 +147,19 @@ export const snapshotApi = {
     body: { caseName },
   }),
   aiStatus: (snapshotId) => request(`/snapshots/${snapshotId}/ai/status`),
+  aiConversation: (snapshotId) => request(`/snapshots/${snapshotId}/ai/conversation`),
+  aiAccepted: (snapshotId) => request(`/snapshots/${snapshotId}/ai/accepted`),
+  aiFiles: (snapshotId, revisionId, framework = 'REACT') => request(`/snapshots/${snapshotId}/ai/files?${new URLSearchParams({ ...(revisionId ? { revisionId } : {}), framework })}`),
+  aiFile: (snapshotId, path, revisionId, framework = 'REACT') => request(aiFilePath(snapshotId, path, revisionId, framework)),
   aiChat: (snapshotId, data) => request(`/snapshots/${snapshotId}/ai/chat`, { method: 'POST', body: data }),
   aiRevisions: (snapshotId) => request(`/snapshots/${snapshotId}/ai/revisions`),
   aiDiff: (snapshotId, revisionId, framework = 'REACT') => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/diff?framework=${framework}`),
   aiAccept: (snapshotId, revisionId, framework = 'REACT') => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/accept?framework=${framework}`, { method: 'POST' }),
   aiReject: (snapshotId, revisionId) => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/reject`, { method: 'POST' }),
+}
+
+export function aiFilePath(snapshotId, path, revisionId, framework = 'REACT') {
+  return `/snapshots/${snapshotId}/ai/file?${new URLSearchParams({ path, framework, ...(revisionId ? { revisionId } : {}) })}`
 }
 
 export async function downloadReactZipExport(token, fileKey) {

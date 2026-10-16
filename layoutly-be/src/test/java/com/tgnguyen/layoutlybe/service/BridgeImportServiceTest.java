@@ -89,7 +89,7 @@ class BridgeImportServiceTest {
                 .contains("/api/snapshots/" + snapshotId + "/assets/icon.svg");
         assertThat(snapshotController.getReact(snapshotId)).contains("function LandingFrame");
         assertThat(snapshotController.getPreview(snapshotId, 1440).block())
-                .contains("/api/snapshots/" + snapshotId + "/assets/icon.svg");
+                .contains("data:image/svg+xml;base64,");
         assertThat(snapshotController.getAsset(snapshotId, "icon.svg").block().getBody())
                 .isEqualTo("<svg/>".getBytes(StandardCharsets.UTF_8));
 

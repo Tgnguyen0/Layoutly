@@ -19,11 +19,11 @@ class FigmaServiceCacheTest {
     Path cacheDirectory;
 
     @Test
-    void readsPersistedFileWithoutCallingFigmaOrRequiringAToken() throws Exception {
+    void readsOnlyTokenScopedPersistedFilesAndPreservesLegacyCache() throws Exception {
         Path fileDirectory = cacheDirectory.resolve("figma-files");
         Files.createDirectories(fileDirectory);
         Files.writeString(
-                fileDirectory.resolve("cached-file.json"),
+                fileDirectory.resolve(AccountService.digest("owner-token") + "-cached-file.json"),
                 "{\"name\":\"Cached design\"}",
                 StandardCharsets.UTF_8);
 
@@ -31,8 +31,10 @@ class FigmaServiceCacheTest {
         FigmaService service = new FigmaService(webClient);
         ReflectionTestUtils.setField(service, "cacheDirectory", cacheDirectory.toString());
 
-        assertThat(service.getFile("cached-file", null).block())
+        assertThat(service.getFile("cached-file", "owner-token").block())
                 .isEqualTo("{\"name\":\"Cached design\"}");
         verifyNoInteractions(webClient);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getFile("cached-file", null))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

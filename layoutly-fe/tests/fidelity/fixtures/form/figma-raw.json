@@ -1,0 +1,131 @@
+{
+  "name": "form",
+  "version": "layoutly-authored-v1",
+  "document": {
+    "id": "document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "root",
+        "name": "root",
+        "type": "FRAME",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 800,
+          "height": 600
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.96,
+              "g": 0.97,
+              "b": 0.99,
+              "a": 1
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": "login",
+            "name": "login",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 180,
+              "y": 80,
+              "width": 440,
+              "height": 440
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 0.96,
+                  "g": 0.97,
+                  "b": 0.99,
+                  "a": 1
+                }
+              }
+            ],
+            "children": [
+              {
+                "id": "label",
+                "name": "label",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 210,
+                  "y": 110,
+                  "width": 350,
+                  "height": 30
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ],
+                "characters": "Đăng nhập",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 16,
+                  "lineHeightPx": 24
+                }
+              },
+              {
+                "id": "field",
+                "name": "field",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": {
+                  "x": 210,
+                  "y": 180,
+                  "width": 350,
+                  "height": 48
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "submit",
+                "name": "submit",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": {
+                  "x": 210,
+                  "y": 280,
+                  "width": 350,
+                  "height": 48
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.15,
+                      "g": 0.35,
+                      "b": 0.65,
+                      "a": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
