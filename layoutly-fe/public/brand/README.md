@@ -17,3 +17,8 @@ Prompt:
 > Use case: product-mockup. Asset type: transparent product cutout for an original sneaker e-commerce website illustration. Primary request: one unbranded premium low-top lifestyle sneaker, off-white ivory leather with subtle taupe suede panels, white laces, sculpted rubber sole. Photoreal commercial studio product photography. Composition: three-quarter side view with toe pointing left and heel on right, slightly elevated camera shows the laces, entire shoe uncropped and large centered with small comfortable margins. Lighting: soft diffused studio lighting, fine realistic stitching and clean crisp material details. Background: genuine transparent alpha; subtle small contact shadow beneath shoe only. No brand logos, no swoosh, no letters, no text, no watermark, no second shoe, no UI, no scenery. This will be composited into HTML browser and phone mockups.
 
 The user-supplied `design-reference/layoutly-ui.png` is used only by the local visual QA crop script. It is not imported by the application and is not packaged into production assets.
+
+## Realistic Smartphone Device Asset
+
+`phone-frame.png` is an authentic natural titanium smartphone device frame featuring realistic metallic edge reflections, physical side buttons (action button, volume rocker, power button), antenna bands, speaker slit, symmetrical thin bezels, and Dynamic Island cutout with true-depth camera lens reflection. The screen area is transparent to cleanly house the responsive HTML/CSS `SneakerSite` mobile preview.
+
