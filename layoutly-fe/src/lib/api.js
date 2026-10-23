@@ -135,6 +135,13 @@ export const snapshotApi = {
   aiReject: (snapshotId, revisionId) => request(`/snapshots/${snapshotId}/ai/revisions/${revisionId}/reject`, { method: 'POST' }),
 }
 
+// Ghép cặp web <-> Figma plugin qua mã ngắn (backend làm trung gian)
+export const bridgeApi = {
+  createSession: () => request('/bridge/sessions', { method: 'POST' }),
+  getSession: (code) => request(`/bridge/sessions/${encodeURIComponent(code)}`),
+  sync: (code, scope) => request(`/bridge/sessions/${encodeURIComponent(code)}/sync`, { method: 'POST', body: { scope } }),
+}
+
 export async function downloadReactZipExport(token, fileKey) {
   const headers = {}
   if (token) headers['X-Figma-Token'] = token

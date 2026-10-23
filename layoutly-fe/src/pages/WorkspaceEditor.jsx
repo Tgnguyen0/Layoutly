@@ -21,6 +21,7 @@ export default function WorkspaceEditor() {
   const [width, setWidth] = useState(1440)
   const [zoom, setZoom] = useState('fit')
   const [selected, setSelected] = useState(null)
+  const [previewRoot, setPreviewRoot] = useState('')
   const [layersOpen, setLayersOpen] = useState(() => window.innerWidth >= 900)
   const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth >= 900)
   const [aiOpen, setAiOpen] = useState(false)
@@ -31,6 +32,7 @@ export default function WorkspaceEditor() {
   const nodeByAnchor = useMemo(() => new Map(rows.map(({ node }) => [nodeAnchor(node.id), node])), [rows])
   const selectedNode = rows.find(({ node }) => node.id === selected)?.node
   useEffect(() => { document.title = `${workspace.snapshot?.fileName || 'Workspace'} - Layoutly`; setSelected(null) }, [workspace.snapshot?.snapshotId, workspace.version])
+  useEffect(() => { setPreviewRoot('') }, [workspace.snapshot?.snapshotId])
   function toggleLayers() { setLayersOpen(value => window.innerWidth < 900 && inspectorOpen ? true : !value); if (window.innerWidth < 900) setInspectorOpen(false) }
   function toggleInspector() { setInspectorOpen(value => window.innerWidth < 900 && layersOpen ? true : !value); if (window.innerWidth < 900) setLayersOpen(false) }
   return <div className="public-app workspace-editor" id="workspace">
@@ -38,8 +40,8 @@ export default function WorkspaceEditor() {
     {(workspace.error || workspace.status) && !importOpen && <div className={workspace.error ? 'we-banner we-error' : 'we-banner we-status'} role={workspace.error ? 'alert' : 'status'}>{workspace.error || workspace.status}</div>}
     {exporting && <section className="we-export-menu" aria-label="Xuất dự án"><label>HTML pages<select value={exportType} onChange={e => setExportType(e.target.value)}><option value="AUTO">AUTO</option><option value="CANVAS">CANVAS</option><option value="FRAME">FRAME</option></select></label><button className="ly-button ly-button-primary" type="button" onClick={() => workspace.exportProject('HTML', exportType)} disabled={Boolean(workspace.busy)}>HTML/CSS ZIP</button><button className="ly-button ly-button-quiet" type="button" onClick={() => workspace.exportProject('REACT')} disabled={Boolean(workspace.busy)}>React ZIP</button><button className="ly-button ly-button-quiet" type="button" onClick={workspace.saveFixture} disabled={Boolean(workspace.busy)}>Lưu test fixture</button></section>}
     <main className={`we-body ${layersOpen ? '' : 'we-hide-layers'} ${inspectorOpen ? '' : 'we-hide-inspector'}`}>
-      {layersOpen && <LayersTree tree={workspace.tree} selected={selected} onSelect={setSelected} onClose={() => setLayersOpen(false)} />}
-      <PreviewCanvas snapshot={workspace.snapshot} version={workspace.version} width={width} zoom={zoom} selected={selected} nodeByAnchor={nodeByAnchor} onSelect={setSelected} />
+      {layersOpen && <LayersTree tree={workspace.tree} selected={selected} onSelect={setSelected} previewRoot={previewRoot} onPage={id => { setPreviewRoot(id); setSelected(id) }} onClose={() => setLayersOpen(false)} />}
+      <PreviewCanvas snapshot={workspace.snapshot} rootId={previewRoot} version={workspace.version} width={width} zoom={zoom} selected={selected} nodeByAnchor={nodeByAnchor} onSelect={setSelected} />
       {inspectorOpen && <aside className="we-inspector"><CodePanel workspace={workspace} /><PropertiesPanel node={selectedNode} /></aside>}
       {!workspace.snapshot && !workspace.busy && <div className="we-import-action"><button type="button" className="ly-button ly-button-primary" onClick={() => setImportOpen(true)}>Import Figma</button></div>}
     </main>

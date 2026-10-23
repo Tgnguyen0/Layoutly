@@ -19,7 +19,7 @@ export function preparePreview(html, baseURL, nonce) {
   return '<!doctype html>' + document.documentElement.outerHTML
 }
 
-export default function PreviewCanvas({ snapshot, version, width, zoom, selected, nodeByAnchor, onSelect }) {
+export default function PreviewCanvas({ snapshot, rootId = '', version, width, zoom, selected, nodeByAnchor, onSelect }) {
   const host = useRef(null)
   const frame = useRef(null)
   const [availableWidth, setAvailableWidth] = useState(600)
@@ -40,7 +40,7 @@ export default function PreviewCanvas({ snapshot, version, width, zoom, selected
     setHtml(''); setError(''); setNotRendered(false)
     if (!snapshot) return
     const controller = new AbortController()
-    const url = new URL(`/api/snapshots/${snapshot.snapshotId}/preview?targetWidth=${width}&v=${version}`, window.location.origin)
+    const url = new URL(`/api/snapshots/${snapshot.snapshotId}/preview?targetWidth=${width}&v=${version}${rootId ? `&rootId=${encodeURIComponent(rootId)}` : ''}`, window.location.origin)
     const requestNonce = crypto.randomUUID()
     nonce.current = requestNonce
     fetch(url, { signal: controller.signal }).then(async response => {
@@ -49,7 +49,7 @@ export default function PreviewCanvas({ snapshot, version, width, zoom, selected
       if (!controller.signal.aborted) setHtml(preparePreview(text, url.href, requestNonce))
     }).catch(caught => { if (!controller.signal.aborted) setError(caught.message) })
     return () => controller.abort()
-  }, [snapshot, width, version])
+  }, [snapshot, width, version, rootId])
   useEffect(() => {
     const receive = event => {
       if (event.source !== frame.current?.contentWindow || event.data?.nonce !== nonce.current) return

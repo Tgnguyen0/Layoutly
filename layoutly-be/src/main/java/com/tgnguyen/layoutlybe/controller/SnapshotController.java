@@ -122,12 +122,19 @@ public class SnapshotController {
 
     @GetMapping(value = "/snapshots/{snapshotId}/preview", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<String> getPreview(@PathVariable String snapshotId,
-                                   @RequestParam(defaultValue = "1440") double targetWidth) {
+                                   @RequestParam(defaultValue = "1440") double targetWidth,
+                                   @RequestParam(required = false) String rootId) {
         FigmaSnapshot snapshot = snapshotService.requireSnapshot(snapshotId);
         DesignNode selectedRoot = selectedRoot(snapshot);
-        DesignNode previewRoot = selectedRoot == snapshot.getDesignIr()
-                ? selectPreviewRoot(snapshot.getDesignIr(), targetWidth)
-                : selectedRoot;
+        // rootId: nguoi dung chon page/frame cu the trong tab Pages -> uu tien hon tu dong cham diem.
+        DesignNode requestedRoot = hasText(rootId)
+                ? findNodeById(snapshot.getDesignIr(), normalizeNodeId(rootId))
+                : null;
+        DesignNode previewRoot = requestedRoot != null
+                ? requestedRoot
+                : selectedRoot == snapshot.getDesignIr()
+                        ? selectPreviewRoot(snapshot.getDesignIr(), targetWidth)
+                        : selectedRoot;
         return snapshotService.getPreviewImageUrls(snapshotId, previewRoot)
                 .onErrorReturn(Map.of())
                 .map(previewUrls -> {

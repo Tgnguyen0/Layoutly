@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, File, Layers, Search, Type, X } from 'lucide-react'
 import { flattenNodes } from '../../lib/workspace.js'
 
-export default function LayersTree({ tree, selected, onSelect, onClose }) {
+export default function LayersTree({ tree, selected, onSelect, onPage = onSelect, previewRoot, onClose }) {
   const [tab, setTab] = useState('Pages')
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState(new Set())
@@ -21,7 +21,7 @@ export default function LayersTree({ tree, selected, onSelect, onClose }) {
   function toggle(id) { setCollapsed(current => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next }) }
   return <aside className="we-layers" aria-label="Pages và Layers">
     <div className="we-panel-tabs">{['Pages', 'Layers'].map(value => <button type="button" key={value} className={tab === value ? 'is-active' : ''} onClick={() => setTab(value)}>{value}</button>)}<button className="we-icon we-close-panel" type="button" aria-label="Đóng layers" onClick={onClose}><X size={16} /></button></div>
-    {tab === 'Pages' && pages.length > 0 && <div className="we-pages-list">{pages.map(({ node }) => <button type="button" key={node.id} className={selected === node.id ? 'is-selected' : ''} onClick={() => onSelect(node.id)} title={node.name}><File size={13} /><span>{node.name}</span></button>)}</div>}
+    {tab === 'Pages' && pages.length > 0 && <div className="we-pages-list">{pages.map(({ node }) => <button type="button" key={node.id} className={(previewRoot || selected) === node.id ? 'is-selected' : ''} onClick={() => onPage(node.id)} title={node.name}><File size={13} /><span>{node.name}</span></button>)}</div>}
     <label className="we-search"><Search size={14} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm layer..." aria-label="Tìm layer" /></label>
     <div className="we-tree" role="list" aria-label="Cây thiết kế">{candidates.filter(({ node }) => !hidden.has(node.id)).map(({ node, depth }) => <div key={node.id} role="listitem" className={`we-node ${selected === node.id ? 'is-selected' : ''}`} style={{ paddingLeft: 8 + Math.min(depth, 8) * 12 }}>
       {node.children?.length ? <button type="button" className="we-tree-toggle" aria-label={`${collapsed.has(node.id) ? 'Mở' : 'Thu gọn'} ${node.name}`} onClick={() => toggle(node.id)}>{collapsed.has(node.id) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}</button> : <span className="we-tree-spacer" />}

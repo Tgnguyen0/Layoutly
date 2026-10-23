@@ -12,7 +12,7 @@ import {
   FolderIcon,
   LinkIcon,
 } from '@heroicons/react/24/outline'
-import { downloadSnapshotZip, fetchSnapshotPreview, importSelection, snapshotApi } from './lib/api.js'
+import { downloadSnapshotZip, fetchSnapshotPreview, importSelection, pollBridgeSession, snapshotApi } from './lib/api.js'
 
 const VIEWPORTS = [
   { key: 'desktop', label: 'Desktop', width: 1440 },
@@ -172,6 +172,12 @@ export default function App() {
   const [status, setStatus] = useState('')
   const reqRef = useRef(0)
   const [retry, setRetry] = useState(0)
+  // Ghép cặp với web (layoutly-fe): nhập mã hiển thị trên web
+  const [codeInput, setCodeInput] = useState('')
+  const [pairedCode, setPairedCode] = useState('')
+  const pairedRef = useRef('')
+  pairedRef.current = pairedCode
+  const lastCommandRef = useRef(0)
 
   const structure = snapshot?.structure || {}
   // Chưa chọn gì thì xem trước cả page
@@ -210,7 +216,7 @@ export default function App() {
       }
       if (m.type === 'export-data') {
         try {
-          const imported = await importSelection(m)
+          const imported = await importSelection(m, pairedRef.current)
           if (m.requestId !== reqRef.current) return
           const structure = await snapshotApi.structure(imported.snapshotId)
           setSnapshot({ ...imported, structure })
@@ -226,6 +232,39 @@ export default function App() {
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   }, [])
+
+  // Khi đã ghép cặp: poll backend để báo "plugin online" và nhận lệnh đồng bộ từ web.
+  useEffect(() => {
+    if (!pairedCode) return
+    let stopped = false
+    async function tick() {
+      try {
+        const command = await pollBridgeSession(pairedCode)
+        if (stopped || !command || command.id === lastCommandRef.current) return
+        lastCommandRef.current = command.id
+        setExportScope(command.scope === 'PAGE' ? 'PAGE' : 'SELECTION')
+        setRetry((n) => n + 1) // xuất lại ngay, kể cả khi phạm vi không đổi
+      } catch (err) {
+        if (stopped) return
+        setError(errorMessage(err))
+        setPairedCode('') // mã sai/hết hạn hoặc mất kết nối backend
+      }
+    }
+    tick()
+    const timer = setInterval(tick, 1500)
+    return () => { stopped = true; clearInterval(timer) }
+  }, [pairedCode])
+
+  function connectToWeb(event) {
+    event.preventDefault()
+    const code = codeInput.replace(/[\s-]/g, '').toUpperCase()
+    if (!code) return
+    setError('')
+    lastCommandRef.current = 0
+    setPairedCode(code)
+    setRetry((n) => n + 1) // đẩy ngay thiết kế hiện tại để web mở được luôn
+    setStatus(`Đã ghép cặp với web (mã ${code}).`)
+  }
 
   useEffect(() => {
     if (!snapshot || tab !== 'PREVIEW') return
@@ -281,6 +320,27 @@ export default function App() {
             )}
           </p>
         )}
+
+        <section className="flex-none rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          {pairedCode ? (
+            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
+              <span className="flex items-center gap-1.5"><LinkIcon className="h-4 w-4 text-emerald-600" /> Đang kết nối với web · mã <strong className="font-mono tracking-widest">{pairedCode}</strong></span>
+              <button type="button" onClick={() => { setPairedCode(''); setStatus('Đã ngắt kết nối với web.') }} className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">Ngắt</button>
+            </div>
+          ) : (
+            <form onSubmit={connectToWeb} className="flex items-center gap-2">
+              <LinkIcon className="h-4 w-4 flex-none text-slate-500" />
+              <input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                placeholder="Nhập mã kết nối hiển thị trên web Layoutly"
+                maxLength={12}
+                className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 px-2 font-mono text-xs uppercase outline-none focus:border-[#1769ff]"
+              />
+              <button type="submit" disabled={!codeInput.trim()} className="h-8 rounded-md bg-[#1769ff] px-3 text-xs font-extrabold text-white hover:bg-[#0f55d8] disabled:opacity-40">Kết nối</button>
+            </form>
+          )}
+        </section>
 
         {snapshot && (
           <section className="flex-none rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
