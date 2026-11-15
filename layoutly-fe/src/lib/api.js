@@ -97,7 +97,7 @@ export async function downloadZipExport(token, fileKey, type = 'AUTO') {
     try {
       message = JSON.parse(text)?.error || message
     } catch {
-      // Keep the plain-text backend error.
+      // Keep the plain-text backend error
     }
     throw new Error(message)
   }

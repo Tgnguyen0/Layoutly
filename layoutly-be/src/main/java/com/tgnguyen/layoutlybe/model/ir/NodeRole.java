@@ -1,4 +1,3 @@
 package com.tgnguyen.layoutlybe.model.ir;
 
-public class NodeRole {
-}
+public enum NodeRole { BUTTON, LINK, IMAGE, TEXT, CONTAINER }

@@ -49,6 +49,7 @@ public class ReactProjectExportService {
         Map<String, String> reactAssetPaths = new LinkedHashMap<>();
         assets.cssUrlByNodeId().forEach((nodeId, path) -> reactAssetPaths.put(nodeId, "../" + path));
         putText(files, "src/styles/layoutly.css", cssGeneratorService.generate(root, reactAssetPaths));
+        putText(files, "src/lib/responsiveScale.js", responsiveScaleModule());
         putText(files, "src/App.jsx", generateApp(pages));
         putText(files, "src/main.jsx", mainSource());
         putText(files, "index.html", indexSource());
@@ -61,17 +62,25 @@ public class ReactProjectExportService {
     }
 
     private String generateApp(List<ReactGeneratorService.GeneratedPage> pages) {
-        if (pages.isEmpty()) return "export default function App() { return <main /> }\n";
+        String importsHeader = "import { useEffect } from 'react'\n"
+                + "import { applyResponsiveScale } from './lib/responsiveScale.js'\n";
 
-        StringBuilder source = new StringBuilder();
+        if (pages.isEmpty()) {
+            return importsHeader + "\nexport default function App() {\n"
+                    + "  useEffect(() => { applyResponsiveScale() }, [])\n"
+                    + "  return <main />\n}\n";
+        }
+
+        StringBuilder source = new StringBuilder(importsHeader);
         for (ReactGeneratorService.GeneratedPage page : pages) {
             source.append("import ").append(page.componentName()).append(" from './pages/")
                     .append(page.fileName()).append("'\n");
         }
         source.append("import './styles/layoutly.css'\n\n");
         if (pages.size() == 1) {
-            source.append("export default function App() {\n  return <")
-                    .append(pages.get(0).componentName()).append(" />\n}\n");
+            source.append("export default function App() {\n")
+                    .append("  useEffect(() => { applyResponsiveScale() }, [])\n")
+                    .append("  return <").append(pages.get(0).componentName()).append(" />\n}\n");
             return source.toString();
         }
 
@@ -82,10 +91,40 @@ public class ReactProjectExportService {
         }
         source.append("]\n\n");
         source.append("export default function App() {\n");
+        source.append("  useEffect(() => { applyResponsiveScale() }, [])\n");
         source.append("  const Page = pages[0].Component\n");
         source.append("  return <Page />\n");
         source.append("}\n");
         return source.toString();
+    }
+
+    /**
+     * Ban ES module tuong duong voi HtmlGeneratorService.responsiveScript(): co/gian
+     * ".figma-canvas" bang transform: scale() de vua chieu rong ".figma-page" tren moi
+     * kich thuoc man hinh. Duoc App.jsx goi lai trong useEffect + tu dong lang nghe resize.
+     */
+    private String responsiveScaleModule() {
+        return "export function applyResponsiveScale() {\n"
+                + "  var pages = document.querySelectorAll('.figma-page')\n"
+                + "  for (var i = 0; i < pages.length; i++) {\n"
+                + "    var page = pages[i]\n"
+                + "    var canvas = page.querySelector('.figma-canvas')\n"
+                + "    if (!canvas) continue\n"
+                + "    var designWidth = parseFloat(page.style.getPropertyValue('--figma-width'))\n"
+                + "    var designHeight = parseFloat(page.style.getPropertyValue('--figma-height'))\n"
+                + "    if (!designWidth) continue\n"
+                + "    canvas.style.width = designWidth + 'px'\n"
+                + "    if (designHeight) canvas.style.minHeight = designHeight + 'px'\n"
+                + "    var available = page.clientWidth || window.innerWidth\n"
+                + "    var scale = available > 0 ? Math.min(1, available / designWidth) : 1\n"
+                + "    canvas.style.transform = 'scale(' + scale + ')'\n"
+                + "    page.style.height = designHeight ? (designHeight * scale) + 'px' : ''\n"
+                + "  }\n"
+                + "}\n\n"
+                + "if (typeof window !== 'undefined') {\n"
+                + "  window.addEventListener('resize', applyResponsiveScale)\n"
+                + "  window.addEventListener('orientationchange', applyResponsiveScale)\n"
+                + "}\n";
     }
 
     private String mainSource() {
