@@ -30,4 +30,9 @@ public class DesignNode {
     NodeRole role = NodeRole.CONTAINER;
     @Builder.Default
     String linkTargetId;
+
+    @Builder.Default
+    TransitionSpec transition = TransitionSpec.none();
+
+    String linkNavigation;
 }

@@ -12,6 +12,10 @@ layoutly-data/
 # Node / Frontend
 layoutly-fe/node_modules/
 layoutly-fe/dist/
+layoutly-fe/tooling/tests/node_modules/
+layoutly-fe/tooling/tests/.vitest/
+layoutly-fe/test-results/
+layoutly-fe/playwright-report/
 layoutly-figma-bridge/node_modules/
 layoutly-figma-bridge/dist/
 
@@ -21,3 +25,7 @@ layoutly-figma-bridge/dist/
 # Env / secrets
 .env
 *.env.local
+layoutly-fe/visual-artifacts/
+
+# Local reference repositories
+repos/

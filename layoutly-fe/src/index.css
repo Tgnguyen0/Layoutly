@@ -14,25 +14,24 @@ body {
 }
 
 ::selection {
-  background: #E8A33D;
-  color: #0A0C11;
+  background: #ffcf4d;
+  color: #001817;
 }
 
-/* Thanh cuon dang blueprint, mong va toi mau */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #effff5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2A3140;
+  background: #00a99d;
   border-radius: 999px;
-  border: 2px solid #0F131A;
+  border: 2px solid #effff5;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3A4356;
+  background: #008f83;
 }
 
 @keyframes blueprint-scan {

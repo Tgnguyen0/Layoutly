@@ -68,7 +68,14 @@ async function readError(res) {
 
 const API = API_ORIGIN + '/api'
 
-export async function importSelection({ meta, json, assets, reference }) {
+// Ghép cặp với web: poll để báo plugin đang online và nhận lệnh đồng bộ (nếu có).
+export async function pollBridgeSession(code) {
+  const res = await fetch(`${API}/bridge/sessions/${encodeURIComponent(code)}/poll`)
+  if (!res.ok) throw await readError(res)
+  return (await res.json()).command // { id, scope } hoặc null
+}
+
+export async function importSelection({ meta, json, assets, reference }, sessionCode) {
   const metadata = {
     source: 'FIGMA_PLUGIN',
     ...meta,
@@ -81,7 +88,8 @@ export async function importSelection({ meta, json, assets, reference }) {
   if (reference) fd.append('referenceImage', new Blob([reference], { type: 'image/png' }), 'reference.png')
   for (const a of assets) fd.append('assets', new Blob([a.bytes], { type: 'image/png' }), a.fileName)
 
-  const res = await fetch(`${API}/bridge/import`, { method: 'POST', body: fd })
+  const query = sessionCode ? `?sessionCode=${encodeURIComponent(sessionCode)}` : ''
+  const res = await fetch(`${API}/bridge/import${query}`, { method: 'POST', body: fd })
   if (!res.ok) throw await readError(res)
   return res.json()
 }
@@ -96,6 +104,7 @@ export const snapshotApi = {
   structure: async (id) => JSON.parse(await getText(`/snapshots/${id}/structure`)),
   html: (id) => getText(`/snapshots/${id}/html`),
   css: (id) => getText(`/snapshots/${id}/css`),
+  react: (id) => getText(`/snapshots/${id}/react`),  
 }
 
 export async function fetchSnapshotPreview(id) {
@@ -104,8 +113,17 @@ export async function fetchSnapshotPreview(id) {
   return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + base) : base + html
 }
 
-export async function downloadSnapshotZip(id, type = 'AUTO') {
-  const res = await fetch(`${API}/snapshots/${id}/export?format=HTML&type=${encodeURIComponent(type)}`)
+// export async function downloadSnapshotZip(id, type = 'AUTO') {
+//   const res = await fetch(`${API}/snapshots/${id}/export?format=HTML&type=${encodeURIComponent(type)}`)
+//   if (!res.ok) throw await readError(res)
+//   triggerDownload(await res.blob(), 'layoutly-html-css-export.zip')
+// }
+
+export async function downloadSnapshotZip(id, type = 'AUTO', format = 'HTML') {
+  const res = await fetch(
+    `${API}/snapshots/${id}/export?format=${encodeURIComponent(format)}&type=${encodeURIComponent(type)}`
+  )
   if (!res.ok) throw await readError(res)
-  triggerDownload(await res.blob(), 'layoutly-html-css-export.zip')
+  const name = format === 'REACT' ? 'layoutly-react-export.zip' : 'layoutly-html-css-export.zip'
+  triggerDownload(await res.blob(), name)
 }
