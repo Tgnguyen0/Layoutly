@@ -1,0 +1,6 @@
+import { File, FolderPlus, LayoutTemplate, MessageSquare, Settings, Trash2, User, X } from 'lucide-react'
+import Brand from '../public/Brand.jsx'
+
+export default function DashboardSidebar({ onClose }) {
+  return <aside className="db-sidebar" aria-label="Điều hướng dự án"><div className="db-brand"><Brand /><button className="we-icon db-close" type="button" aria-label="Đóng sidebar" onClick={onClose}><X size={17} /></button></div><nav><a href="/#/dashboard" aria-current="page"><File size={16} />Dự án của tôi</a><a href="/#/workspace?import=1"><FolderPlus size={16} />Tạo dự án mới</a>{[[MessageSquare, 'AI Chat'], [LayoutTemplate, 'Mẫu thiết kế'], [Trash2, 'Thùng rác']].map(([Icon, label]) => <button key={label} type="button" disabled title={`${label} chưa khả dụng`}><Icon size={16} />{label}<small>Sắp có</small></button>)}</nav><div className="db-account"><span>Tài khoản</span>{[[User, 'Hồ sơ'], [Settings, 'Cài đặt']].map(([Icon, label]) => <button key={label} type="button" disabled title={`${label} chưa khả dụng`}><Icon size={16} />{label}<small>Sắp có</small></button>)}</div><div className="db-local"><strong>Workspace cục bộ</strong><p>Chưa có lưu trữ theo tài khoản.</p><a href="/#/workspace?import=1" className="ly-button ly-button-accent">Import Figma</a></div></aside>
+}

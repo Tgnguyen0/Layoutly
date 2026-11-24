@@ -72,11 +72,11 @@ class SnapshotControllerTest {
         controller.getHtml(id);
         controller.getCss(id);
         controller.getReact(id);
-        String preview = controller.getPreview(id, 1440).block();
+        String preview = controller.getPreview(id, 1440, null).block();
         assertThat(preview)
                 .contains("<title>Horizontal Row</title>")
                 .contains("data-figma-name=\"Horizontal Row\"");
-        controller.getPreview(id, 1440).block();
+        controller.getPreview(id, 1440, null).block();
         controller.export(id, "HTML", "AUTO").block();
         controller.export(id, "REACT", "AUTO").block();
 
@@ -131,7 +131,7 @@ class SnapshotControllerTest {
                 new SnapshotController.ImportRequest("viewport-file", null), "token").block();
         assertThat(imported).isNotNull();
 
-        assertThat(controller.getPreview(imported.snapshotId(), 1440).block())
+        assertThat(controller.getPreview(imported.snapshotId(), 1440, null).block())
                 .contains("<title>Desktop Landing</title>")
                 .doesNotContain("<title>Cover</title>");
     }

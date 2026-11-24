@@ -14,6 +14,7 @@ public final class DesignNodeMapper {
 
         Bounds bounds = node.getBounds() != null ? node.getBounds() : Bounds.empty();
         StyleSpec style = node.getStyle() != null ? node.getStyle() : StyleSpec.builder().build();
+        TransitionSpec transition = node.getTransition() != null ? node.getTransition() : TransitionSpec.none(); // Animation
         LayoutSpec layout = node.getLayout() != null ? node.getLayout() : LayoutSpec.builder().build();
         EdgeInsets padding = layout.getPadding() != null ? layout.getPadding() : EdgeInsets.empty();
         List<UINode> children = node.getChildren() == null
@@ -24,9 +25,11 @@ public final class DesignNodeMapper {
                 .id(node.getId())
                 .name(node.getName())
                 .type(node.getType())
+                .role(node.getRole())
                 .characters(node.getText())
                 .children(children)
                 .exportAsImage(node.getAsset() != null && node.getAsset().exportAsImage())
+                .assetRenderBounds(node.getAsset() == null ? null : node.getAsset().renderBounds())
                 .x(bounds.x())
                 .y(bounds.y())
                 .width(bounds.width())
@@ -41,11 +44,24 @@ public final class DesignNodeMapper {
                 .fontWeight(style.getFontWeight())
                 .lineHeight(style.getLineHeight())
                 .letterSpacing(style.getLetterSpacing())
+                .textAlign(style.getTextAlign())
+                .textAutoResize(style.getTextAutoResize())
+                .fontStyle(style.getFontStyle())
+                .cornerRadii(style.getCornerRadii())
+                .shadows(style.getShadows())
+                .clipsContent(style.getClipsContent())
+                .visible(style.getVisible())
                 .paddingTop(padding.top())
                 .paddingRight(padding.right())
                 .paddingBottom(padding.bottom())
                 .paddingLeft(padding.left())
                 .itemSpacing(layout.getGap())
+                .linkTargetId(node.getLinkTargetId())
+                .transitionType(transition.type()) // Animation
+                .transitionDurationMs(transition.durationMs()) // Animation
+                .transitionEasing(transition.easing()) // Animation
+                .linkTargetId(node.getLinkTargetId())
+                .linkNavigation(node.getLinkNavigation())
                 .build();
     }
 
@@ -60,6 +76,7 @@ public final class DesignNodeMapper {
                 .id(node.getId())
                 .name(node.getName())
                 .type(node.getType())
+                .role(node.getRole() != null ? node.getRole() : NodeRole.CONTAINER)
                 .text(node.getCharacters())
                 .bounds(new Bounds(node.getX(), node.getY(), node.getWidth(), node.getHeight()))
                 .layout(LayoutSpec.builder()
@@ -84,8 +101,20 @@ public final class DesignNodeMapper {
                         .fontWeight(node.getFontWeight())
                         .lineHeight(node.getLineHeight())
                         .letterSpacing(node.getLetterSpacing())
+                        .textAlign(node.getTextAlign())
+                        .textAutoResize(node.getTextAutoResize())
+                        .fontStyle(node.getFontStyle())
+                        .cornerRadii(node.getCornerRadii())
+                        .shadows(node.getShadows())
+                        .clipsContent(node.getClipsContent())
+                        .visible(node.getVisible())
                         .build())
-                .asset(new AssetSpec(node.isExportAsImage(), node.isExportAsImage() ? "RASTERIZED" : null))
+                .asset(new AssetSpec(node.isExportAsImage(), node.isExportAsImage() ? "RASTERIZED" : null,
+                        node.getAssetRenderBounds()))
+                .linkTargetId(node.getLinkTargetId())
+                .transition(new TransitionSpec(node.getTransitionType(), node.getTransitionDurationMs(), node.getTransitionEasing()))
+                .linkTargetId(node.getLinkTargetId())
+                .linkNavigation(node.getLinkNavigation())
                 .children(children)
                 .build();
     }
