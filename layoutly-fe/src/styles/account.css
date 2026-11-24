@@ -1,0 +1,40 @@
+/* Hiển thị trạng thái đăng nhập: avatar, menu tài khoản, khối tài khoản ở sidebar dashboard. */
+.ly-account { position: relative; display: inline-flex; }
+.ly-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ly-primary, #123b52); color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
+.ly-avatar-button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 4px 8px 4px 4px; border: 1px solid var(--ly-border, #e5e9ea); border-radius: 999px; background: #fff; color: var(--ly-text, #102638); cursor: pointer; transition: border-color .15s, background .15s; }
+.ly-avatar-button:hover, .ly-avatar-button[aria-expanded="true"] { border-color: #b2c4cc; background: #f4f8f8; }
+.ly-avatar-button svg { color: var(--ly-muted, #64748b); }
+.ly-avatar-name { display: none; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.ly-avatar-skeleton { display: inline-block; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: #edf3f4; }
+.ly-account-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; display: grid; gap: 2px; width: 260px; padding: 6px; border: 1px solid var(--ly-border, #e5e9ea); border-radius: 8px; background: #fff; box-shadow: 0 8px 25px #10263815; }
+.ly-account-who { display: grid; min-width: 0; margin-bottom: 4px; padding: 8px 10px 10px; border-bottom: 1px solid var(--ly-border, #e5e9ea); }
+.ly-account-who strong, .ly-account-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ly-account-who strong { font-size: 13px; font-weight: 700; color: var(--ly-text, #102638); }
+.ly-account-who span { font-size: 12px; color: var(--ly-muted, #64748b); }
+.ly-account-menu [role="menuitem"] { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 38px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: #37536a; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.ly-account-menu [role="menuitem"]:hover:not(:disabled), .ly-account-menu [role="menuitem"]:focus-visible { background: #f1f5f5; color: var(--ly-primary, #123b52); }
+.ly-account-menu [role="menuitem"]:focus-visible { outline-offset: -2px; }
+.public-app .ly-account-menu a[role="menuitem"]:hover { color: var(--ly-primary, #123b52); }
+.ly-account-menu .ly-account-logout { color: var(--ly-danger, #a8323d); }
+.ly-account-menu .ly-account-logout:hover:not(:disabled), .ly-account-menu .ly-account-logout:focus-visible { background: #fbeff0; color: var(--ly-danger, #a8323d); }
+.ly-account-menu [role="menuitem"]:disabled { opacity: .55; cursor: wait; }
+.ly-account-error { padding: 6px 10px 4px; color: var(--ly-danger, #a8323d); font-size: 12px; }
+.we-toolbar .ly-avatar-button, .we-toolbar .ly-avatar-skeleton { height: 36px; }
+.we-toolbar .ly-avatar-skeleton { flex-basis: 36px; width: 36px; }
+.we-toolbar .ly-avatar { width: 28px; height: 28px; }
+.we-login { min-height: 34px; padding: 6px 12px; font-size: 11px; }
+
+.db-user { display: grid; gap: 10px; margin-bottom: 4px; padding: 12px; border: 1px solid var(--ly-border, #e5e9ea); border-radius: 8px; background: #fafaf7; }
+.db-user-loading { height: 96px; background: #edf3f4; border-color: transparent; }
+.db-user-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.db-user-info > div { display: grid; min-width: 0; }
+.db-user-info strong, .db-user-info > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-user-info strong { font-size: 12px; font-weight: 700; }
+.db-user-info > div > span { font-size: 11px; color: var(--ly-muted, #64748b); }
+.db-user .db-logout { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; border: 1px solid var(--ly-border, #e5e9ea); border-radius: 6px; background: #fff; color: var(--ly-danger, #a8323d); font-size: 11px; font-weight: 600; cursor: pointer; }
+.db-user .db-logout:hover:not(:disabled) { background: #fbeff0; }
+.db-user .db-logout:disabled { opacity: .55; cursor: wait; }
+.db-user-login { width: 100%; min-height: 34px; font-size: 11px; }
+
+@media (min-width: 900px) { .ly-avatar-name { display: block; } }
+@media (max-width: 640px) { .ly-account-menu { width: min(260px, calc(100vw - 16px)); } }

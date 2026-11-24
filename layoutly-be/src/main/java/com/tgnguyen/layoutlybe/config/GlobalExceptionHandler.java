@@ -1,9 +1,11 @@
 package com.tgnguyen.layoutlybe.config;
 
+import com.tgnguyen.layoutlybe.exception.ApiException;
 import com.tgnguyen.layoutlybe.exception.FigmaRateLimitException;
 import com.tgnguyen.layoutlybe.exception.PayloadTooLargeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -27,6 +29,18 @@ public class GlobalExceptionHandler {
         if (ex.getUpgradeUrl() != null) body.put("upgradeUrl", ex.getUpgradeUrl());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(body);
+    }
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<Map<String, String>> handleApi(ApiException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "Dữ liệu gửi lên không hợp lệ."));
     }
 
     @ExceptionHandler(IllegalStateException.class)

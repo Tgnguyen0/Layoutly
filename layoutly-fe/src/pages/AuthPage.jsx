@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Download, Eye, EyeOff, FolderCheck, Info, LoaderCircle, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import Brand from '../components/public/Brand.jsx'
 import ProductShowcase from '../components/public/ProductShowcase.jsx'
+import { setCurrentUser } from '../lib/auth.js'
 import { accountCapabilities, submitAccountForm, UNAVAILABLE_ACCOUNTS, validateAccountForm } from '../lib/accounts.js'
 
 const texts = {
@@ -72,7 +73,7 @@ export default function AuthPage({ mode }) {
       if (controller.signal.aborted) return
       setValues(current => ({ ...current, password: '', confirmPassword: '' }))
       if (mode === 'forgot') setNotice({ error: false, text: 'Nếu email đã được đăng ký, bạn sẽ nhận được liên kết đặt lại mật khẩu.' })
-      else window.location.hash = '#workspace'
+      else { setCurrentUser(result.user); window.location.hash = '#workspace' }
     } catch (error) {
       if (submission.current === controller) setNotice({ error: true, text: error.name === 'AbortError' ? 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.' : error.message })
     } finally {

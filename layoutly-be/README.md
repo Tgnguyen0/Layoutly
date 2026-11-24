@@ -53,3 +53,22 @@ curl -H "X-Figma-Token: $TOKEN" http://localhost:8080/api/figma/file/ABC123XYZ/s
 Nếu đã set biến môi trường `FIGMA_TOKEN` trước khi chạy app thì không cần thêm header `-H "X-Figma-Token: ..."` nữa — app sẽ tự dùng token đó làm mặc định.
 
 Response trả về là JSON gốc từ Figma — copy vào công cụ format JSON để xem cấu trúc dễ hơn.
+
+## 6. Tài khoản và lưu dự án (PostgreSQL / Neon)
+
+Cần biến môi trường `DB_PASSWORD` (tuỳ chọn ghi đè `DB_URL`, `DB_USER`). Bảng `users`, `user_sessions`, `projects`, `project_files` được Hibernate tự tạo (`ddl-auto=update`).
+
+Đăng nhập dùng cookie phiên `layoutly_session` (HttpOnly, SameSite=Lax) và CSRF double-submit: gọi `GET /api/auth/csrf` lấy `{headerName, token}`, rồi gửi token trong header `X-CSRF-TOKEN` cho mọi POST/PUT/DELETE vào `/api/auth/**` và `/api/projects/**` (frontend `lib/accounts.js` đã làm sẵn). Frontend dev dùng proxy của Vite nên cùng origin.
+
+| Endpoint | Mô tả |
+|---|---|
+| `GET /api/auth/capabilities` | `{contractVersion: 1, login, registration, passwordReset}` |
+| `GET /api/auth/csrf` | `{headerName: "X-CSRF-TOKEN", token}` + cookie |
+| `POST /api/auth/register` | `{displayName, email, password, acceptedTermsVersion: "1"}` (mật khẩu 12–128 ký tự) → `{user}` + cookie |
+| `POST /api/auth/login` | `{email, password, rememberMe}` → `{user}` + cookie; sai 5 lần/15 phút → 429 |
+| `POST /api/auth/logout`, `GET /api/auth/me` | đăng xuất / người dùng hiện tại |
+| `GET/POST /api/projects` | danh sách / tạo dự án `{name, framework: REACT\|HTML, snapshotId, files:[{path, content}]}` |
+| `GET/PUT/DELETE /api/projects/{id}` | xem / sửa (`name`, `files`, `replaceFiles`) / xoá |
+| `GET /api/projects/{id}/download` | tải zip toàn bộ file |
+
+Giới hạn: 50 dự án/người, 500 file/dự án, 1 MB/file, 10 MB/dự án. Các endpoint cũ (`/api/snapshots`, `/api/figma`...) vẫn mở, không cần đăng nhập.
