@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
 import Brand from './Brand.jsx'
+import UserMenu from '../UserMenu.jsx'
+import useAuth from '../../hooks/useAuth.js'
 
 const links = [['Home', '/'], ['Work', '/#/dashboard'], ['Grow', '/#grow'], ['Stay', '/#stay']]
 
 export default function PublicHeader({ route }) {
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
   const trigger = useRef(null)
   const drawer = useRef(null)
   useEffect(() => {
@@ -28,7 +31,7 @@ export default function PublicHeader({ route }) {
           {links.map(([label, href]) => <a key={label} href={href}>{label}</a>)}
         </nav>
         <div className="ly-header-actions">
-          <a href="/#/login" className="ly-button ly-button-quiet ly-login-link" aria-current={route === '/login' ? 'page' : undefined}>Đăng nhập</a>
+          <UserMenu showName />
           <a href="/#workspace" className="ly-button ly-button-accent">Bắt đầu miễn phí <ArrowUpRight size={16} /></a>
           <button className="ly-icon-button ly-menu-trigger" ref={trigger} type="button" aria-label={open ? 'Đóng menu' : 'Mở menu'} aria-expanded={open} aria-controls="public-mobile-menu" onClick={() => setOpen(!open)}>
             {open ? <X size={21} /> : <Menu size={21} />}
@@ -37,8 +40,10 @@ export default function PublicHeader({ route }) {
       </div>
       {open && <nav ref={drawer} id="public-mobile-menu" className="ly-mobile-nav" aria-label="Điều hướng di động">
         {links.map(([label, href]) => <a key={label} href={href} onClick={() => setOpen(false)}>{label}</a>)}
-        <a href="/#/login" onClick={() => setOpen(false)}>Đăng nhập</a>
-        <a href="/#/register" onClick={() => setOpen(false)}>Đăng ký</a>
+        {user === null && <>
+          <a href="/#/login" onClick={() => setOpen(false)}>Đăng nhập</a>
+          <a href="/#/register" onClick={() => setOpen(false)}>Đăng ký</a>
+        </>}
       </nav>}
     </header>
   )

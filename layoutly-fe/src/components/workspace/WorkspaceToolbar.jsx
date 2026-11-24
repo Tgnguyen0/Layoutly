@@ -1,3 +1,4 @@
+import UserMenu from '../UserMenu.jsx'
 import { ArrowLeft, Download, History, Layers, MessageSquare, Monitor, PanelRight, Plus, RefreshCw, Smartphone, Undo2, Redo2 } from 'lucide-react'
 
 export function ToolButton({ icon: Icon, label, active, ...props }) {
@@ -15,5 +16,6 @@ export default function WorkspaceToolbar({ workspace, width, setWidth, zoom, set
     <div className="we-toolbar-tools"><ToolButton icon={Undo2} label="Undo chưa khả dụng" disabled /><ToolButton icon={Redo2} label="Redo chưa khả dụng" disabled /><ToolButton icon={History} label="Lịch sử chưa khả dụng" disabled /><ToolButton icon={RefreshCw} label="Refresh từ Figma (cần token)" disabled={!workspace.token || !workspace.snapshot || Boolean(workspace.busy) || workspace.snapshot.source !== 'FIGMA_REST'} onClick={workspace.refresh} /></div>
     <ToolButton icon={Layers} label="Mở hoặc đóng layers" onClick={onLayers} /><ToolButton icon={PanelRight} label="Mở hoặc đóng inspector" onClick={onInspector} /><ToolButton icon={MessageSquare} label="Mở hoặc đóng Layoutly AI" active={aiOpen} onClick={onAI} />
     <button type="button" className="ly-button ly-button-primary we-export" disabled={!workspace.snapshot || Boolean(workspace.busy)} onClick={() => setExporting(!exporting)} aria-expanded={exporting}><Download size={16} /><span>Xuất dự án</span></button>
+    <UserMenu loginClassName="ly-button ly-button-quiet we-login" />
   </header>
 }

@@ -74,6 +74,7 @@ describe('landing and header', () => {
     expect(screen.getByRole('link', { name: 'Bắt đầu miễn phí' })).toHaveAttribute('href', '/#workspace')
   })
   it('supports keyboard dismissal of the mobile navigation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
     const user = userEvent.setup()
     render(<PublicHeader route="/" />)
     const trigger = screen.getByRole('button', { name: 'Mở menu' })
